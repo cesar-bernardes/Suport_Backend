@@ -1,14 +1,12 @@
 # Suport_Backend
 
-Backend do Portal de Ocorrências de Suporte.
+Backend do Portal de Ocorrências de Suporte, conectado ao Supabase no schema `suporte`.
 
 ## Estrutura
 
-- `api/`: rotas de autenticação, usuários, catálogo e ocorrências.
-- `auth/`: auxiliares de autenticação.
-- `database/`: schema e migrações do banco de dados.
-- `worker/`: entrada para execução no Cloudflare Worker.
-- `types/`: tipos das integrações Cloudflare.
+- `api/`: autenticação, usuários, catálogo, ocorrências e agenda.
+- `database/`: histórico de schema e migrações.
+- `types/`: tipos do ambiente de execução.
 
 ## Instalação
 
@@ -17,9 +15,14 @@ npm install
 npm run typecheck
 ```
 
-## Banco de dados
+## Configuração
 
-```bash
-npm run db:generate
+Crie `.env.local` usando `.env.example` e preencha:
+
+```env
+SUPABASE_URL=
+SUPABASE_SERVICE_ROLE_KEY=
+SUPABASE_SCHEMA=suporte
 ```
 
+A chave de serviço deve permanecer somente no backend.
