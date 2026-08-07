@@ -64,6 +64,40 @@ export const portalOccurrences = sqliteTable(
   ],
 );
 
+export const portalAgendaEntries = sqliteTable(
+  "portal_agenda_entries",
+  {
+    id: text("id").primaryKey().notNull(),
+    type: text("type", {
+      enum: ["agendado", "inesperado", "interno"],
+    }).notNull(),
+    title: text("title").notNull(),
+    description: text("description").notNull().default(""),
+    clientId: text("client_id"),
+    assigneeId: text("assignee_id").notNull(),
+    createdBy: text("created_by").notNull(),
+    scheduledStart: text("scheduled_start"),
+    estimatedMinutes: integer("estimated_minutes"),
+    status: text("status", {
+      enum: ["planejado", "em_andamento", "concluido", "cancelado"],
+    }).notNull(),
+    actualStart: text("actual_start"),
+    actualEnd: text("actual_end"),
+    outcome: text("outcome"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    deletedAt: text("deleted_at"),
+    deletedBy: text("deleted_by"),
+  },
+  (table) => [
+    index("portal_agenda_assignee_start_idx").on(
+      table.assigneeId,
+      table.scheduledStart,
+    ),
+    index("portal_agenda_active_status_idx").on(table.deletedAt, table.status),
+  ],
+);
+
 export const portalSessions = sqliteTable(
   "portal_sessions",
   {

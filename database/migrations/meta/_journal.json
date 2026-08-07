@@ -15,6 +15,13 @@
       "when": 1786062798429,
       "tag": "0001_mushy_paibok",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1786122712604,
+      "tag": "0002_wonderful_supernaut",
+      "breakpoints": true
     }
   ]
 }
