@@ -5,7 +5,6 @@ import {
 } from "../_lib/demo-auth";
 import {
   catalogMatchesOccurrence,
-  catalogStore,
   OCCURRENCE_STATUSES,
   SEVERITIES,
   type DemoOccurrenceStatus,
@@ -14,6 +13,7 @@ import {
   validClient,
   validSystemModule,
 } from "../_lib/demo-store";
+import { getStoredCatalogItem } from "../_lib/catalog-db";
 import {
   createStoredOccurrence,
   getStoredOccurrence,
@@ -161,7 +161,7 @@ export async function POST(request: Request) {
       );
     }
   } else {
-    const catalogItem = catalogStore.get(catalogChoice);
+    const catalogItem = await getStoredCatalogItem(catalogChoice);
     if (
       !catalogItem ||
       !catalogItem.active ||

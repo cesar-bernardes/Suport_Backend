@@ -39,5 +39,8 @@ interface D1Database {
 declare module "cloudflare:workers" {
   export const env: {
     DB?: D1Database;
+    SUPABASE_URL?: string;
+    SUPABASE_SERVICE_ROLE_KEY?: string;
+    SUPABASE_SCHEMA?: string;
   };
 }

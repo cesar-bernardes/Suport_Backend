@@ -1,11 +1,16 @@
 import { canManageCatalog, sessionUser } from "../_lib/demo-auth";
 import {
-  catalogStore,
-  findCatalogDuplicate,
   normalizeCatalogName,
   type StoredCatalogItem,
   validSystemModule,
 } from "../_lib/demo-store";
+import {
+  createStoredCatalogItem,
+  findStoredCatalogDuplicate,
+  getStoredCatalogItem,
+  listStoredCatalogItems,
+  updateStoredCatalogItem,
+} from "../_lib/catalog-db";
 import {
   apiError,
   cleanRequiredString,
@@ -50,7 +55,7 @@ function validateName(value: unknown) {
 export async function GET(request: Request) {
   const user = await sessionUser(request);
   if (!user) return apiError(401, "Sessão inválida ou expirada.");
-  return jsonResponse({ items: [...catalogStore.values()] });
+  return jsonResponse({ items: await listStoredCatalogItems() });
 }
 
 export async function POST(request: Request) {
@@ -92,7 +97,7 @@ export async function POST(request: Request) {
   }
 
   const normalizedName = normalizeCatalogName(name);
-  if (findCatalogDuplicate(systemId, moduleId, normalizedName)) {
+  if (await findStoredCatalogDuplicate(systemId, moduleId, normalizedName)) {
     return apiError(
       409,
       "Já existe um item com este nome para o sistema e módulo.",
@@ -111,9 +116,7 @@ export async function POST(request: Request) {
     createdAt: now,
     updatedAt: now,
   };
-  catalogStore.set(item.id, item);
-
-  return jsonResponse({ item }, { status: 201 });
+  return jsonResponse({ item: await createStoredCatalogItem(item) }, { status: 201 });
 }
 
 export async function PATCH(request: Request) {
@@ -131,7 +134,7 @@ export async function PATCH(request: Request) {
 
   const id = cleanRequiredString(body.id);
   if (!id) return apiError(422, "Item do Catálogo não informado.");
-  const current = catalogStore.get(id);
+  const current = await getStoredCatalogItem(id);
   if (!current) return apiError(422, "Item do Catálogo não encontrado.");
 
   const systemId =
@@ -166,7 +169,7 @@ export async function PATCH(request: Request) {
   }
 
   const normalizedName = normalizeCatalogName(name);
-  if (findCatalogDuplicate(systemId, moduleId, normalizedName, id)) {
+  if (await findStoredCatalogDuplicate(systemId, moduleId, normalizedName, id)) {
     return apiError(
       409,
       "Já existe um item com este nome para o sistema e módulo.",
@@ -183,7 +186,5 @@ export async function PATCH(request: Request) {
     active,
     updatedAt: new Date().toISOString(),
   };
-  catalogStore.set(id, item);
-
-  return jsonResponse({ item });
+  return jsonResponse({ item: await updateStoredCatalogItem(item) });
 }
