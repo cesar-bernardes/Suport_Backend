@@ -1,5 +1,5 @@
 import { canManageAnyOccurrence, sessionUser, validManagedUserId } from "../_lib/demo-auth";
-import { validClient } from "../_lib/demo-store";
+import { validClient } from "../_lib/reference-data";
 import {
   createAgendaEntry, getAgendaEntry, hasAgendaOverlap, listAgendaEntries,
   softDeleteAgendaEntry, updateAgendaEntry,
@@ -55,7 +55,7 @@ export async function POST(request: Request) {
   if (description.length > 1000) return apiError(422, "A descrição deve ter no máximo 1.000 caracteres.");
   if (scheduledStart === undefined) return apiError(422, "Data e horário inválidos.");
   if (estimatedMinutes === undefined) return apiError(422, "Estimativa inválida.");
-  if (type !== "interno" && (!clientId || !validClient(clientId))) return apiError(422, "Selecione um cliente válido.");
+  if (type !== "interno" && (!clientId || !(await validClient(clientId)))) return apiError(422, "Selecione um cliente válido.");
   if (!(await validManagedUserId(assigneeId))) return apiError(422, "Responsável inválido.");
   if (user.role === "suporte" && assigneeId !== user.id) return apiError(403, "Você só pode preencher sua própria agenda.");
   if (recordCompleted && (!Number.isFinite(recordedMinutes) || recordedMinutes < 1 || recordedMinutes > 720)) return apiError(422, "Informe o tempo realizado entre 1 e 720 minutos.");
@@ -104,7 +104,7 @@ export async function PATCH(request: Request) {
     const estimatedMinutes = Object.hasOwn(body, "estimatedMinutes") ? optionalEstimate(body.estimatedMinutes) : current.estimatedMinutes;
     if (!TYPES.has(type) || !STATUSES.has(status) || title.length < 3 || title.length > 120 || description.length > 1000) return apiError(422, "Revise os campos informados.");
     if (scheduledStart === undefined || estimatedMinutes === undefined) return apiError(422, "Data ou estimativa inválida.");
-    if (type !== "interno" && (!clientId || !validClient(clientId))) return apiError(422, "Selecione um cliente válido.");
+    if (type !== "interno" && (!clientId || !(await validClient(clientId)))) return apiError(422, "Selecione um cliente válido.");
     if (!(await validManagedUserId(assigneeId))) return apiError(422, "Responsável inválido.");
     if (user.role === "suporte" && assigneeId !== user.id) return apiError(403, "Você não pode reatribuir este compromisso.");
     entry = { ...entry, type, status, title, description, clientId: type === "interno" ? null : clientId, assigneeId, scheduledStart, estimatedMinutes };
