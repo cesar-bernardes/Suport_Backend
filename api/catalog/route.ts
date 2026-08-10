@@ -2,8 +2,8 @@ import { canManageCatalog, sessionUser } from "../_lib/demo-auth";
 import {
   normalizeCatalogName,
   type StoredCatalogItem,
-  validSystemModule,
 } from "../_lib/demo-store";
+import { validSystemModule } from "../_lib/reference-data";
 import {
   createStoredCatalogItem,
   findStoredCatalogDuplicate,
@@ -83,7 +83,7 @@ export async function POST(request: Request) {
       `Informe sistema, módulo e um nome entre ${MIN_NAME_LENGTH} e ${MAX_NAME_LENGTH} caracteres.`,
     );
   }
-  if (!validSystemModule(systemId, moduleId)) {
+  if (!(await validSystemModule(systemId, moduleId))) {
     return apiError(422, "A combinação de sistema e módulo é inválida.");
   }
   if (!aliases) {
@@ -155,7 +155,7 @@ export async function PATCH(request: Request) {
       `Informe sistema, módulo e um nome entre ${MIN_NAME_LENGTH} e ${MAX_NAME_LENGTH} caracteres.`,
     );
   }
-  if (!validSystemModule(systemId, moduleId)) {
+  if (!(await validSystemModule(systemId, moduleId))) {
     return apiError(422, "A combinação de sistema e módulo é inválida.");
   }
   if (!aliases) {
