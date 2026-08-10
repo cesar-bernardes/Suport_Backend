@@ -1,1 +1,1 @@
-export { GET } from "../../../api/reference-data/route";
+export { DELETE, GET, PATCH, POST } from "../../../api/reference-data/route";
