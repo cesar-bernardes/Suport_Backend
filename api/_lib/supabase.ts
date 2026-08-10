@@ -7,17 +7,21 @@ function runtimeValue(name: "SUPABASE_URL" | "SUPABASE_SERVICE_ROLE_KEY" | "SUPA
   return value?.trim() || "";
 }
 
-export function supportDatabase() {
+export function supportSupabase() {
   const url = runtimeValue("SUPABASE_URL");
   const serviceRoleKey = runtimeValue("SUPABASE_SERVICE_ROLE_KEY");
-  const schema = runtimeValue("SUPABASE_SCHEMA") || "suporte";
   if (!url || !serviceRoleKey) {
     throw new Error("Supabase environment variables are unavailable.");
   }
   client ??= createClient<any>(url, serviceRoleKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
-  return client.schema(schema);
+  return client;
+}
+
+export function supportDatabase() {
+  const schema = runtimeValue("SUPABASE_SCHEMA") || "suporte";
+  return supportSupabase().schema(schema);
 }
 
 export function requireData<T>(result: { data: T | null; error: { message: string } | null }) {
