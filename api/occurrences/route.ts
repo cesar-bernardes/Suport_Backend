@@ -4,15 +4,17 @@ import {
   validManagedUserId,
 } from "../_lib/demo-auth";
 import {
-  catalogMatchesOccurrence,
   OCCURRENCE_STATUSES,
   SEVERITIES,
   type DemoOccurrenceStatus,
   type DemoSeverity,
   type StoredOccurrence,
+} from "../_lib/demo-store";
+import {
+  catalogMatchesReference,
   validClient,
   validSystemModule,
-} from "../_lib/demo-store";
+} from "../_lib/reference-data";
 import { getStoredCatalogItem } from "../_lib/catalog-db";
 import {
   createStoredOccurrence,
@@ -115,7 +117,7 @@ export async function POST(request: Request) {
   ) {
     return apiError(422, "Revise os campos obrigatórios.");
   }
-  if (!validClient(clientId) || !validSystemModule(systemId, moduleId)) {
+  if (!(await validClient(clientId)) || !(await validSystemModule(systemId, moduleId))) {
     return apiError(422, "Cliente, sistema ou módulo inválido.");
   }
   if (!severitySet.has(severity)) {
@@ -165,7 +167,7 @@ export async function POST(request: Request) {
     if (
       !catalogItem ||
       !catalogItem.active ||
-      !catalogMatchesOccurrence(catalogItem, systemId, moduleId)
+      !(await catalogMatchesReference(catalogItem, systemId, moduleId))
     ) {
       return apiError(
         422,
