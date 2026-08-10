@@ -1,5 +1,18 @@
 import { NextResponse } from "next/server";
 
+const DEFAULT_ALLOWED_MUTATION_ORIGINS = [
+  "https://suporte-front.vercel.app",
+  "https://portal-ocorrencias-suporte-2026.cesar727476.chatgpt.site",
+];
+
+function allowedMutationOrigins() {
+  const configured = (process.env.ALLOWED_ORIGINS || "")
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+  return new Set([...DEFAULT_ALLOWED_MUTATION_ORIGINS, ...configured]);
+}
+
 export function jsonResponse(
   body: unknown,
   init?: ResponseInit,
@@ -28,7 +41,12 @@ export function sameOriginMutation(request: Request) {
   if (!origin) return true;
 
   try {
-    return new URL(origin).origin === new URL(request.url).origin;
+    const requestOrigin = new URL(request.url).origin;
+    const callerOrigin = new URL(origin).origin;
+    return (
+      callerOrigin === requestOrigin ||
+      allowedMutationOrigins().has(callerOrigin)
+    );
   } catch {
     return false;
   }
