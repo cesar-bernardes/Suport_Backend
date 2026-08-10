@@ -76,6 +76,7 @@ export async function updateStoredOccurrence(occurrence: StoredOccurrence) {
   const result = await supportDatabase().from("portal_occurrences")
     .update({ description: occurrence.description, severity: occurrence.severity,
       status: occurrence.status, responsible_id: occurrence.responsibleId,
+      attachments_json: occurrence.attachments,
       updated_at: occurrence.updatedAt })
     .eq("id", occurrence.id).is("deleted_at", null).select("*").maybeSingle();
   if (result.error) throw new Error(result.error.message);
