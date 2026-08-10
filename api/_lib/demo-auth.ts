@@ -171,5 +171,7 @@ export function isSecureRequest(request: Request) {
   const forwarded = request.headers.get("x-forwarded-proto")?.split(",")[0]?.trim().toLowerCase();
   return new URL(request.url).protocol === "https:" || forwarded === "https";
 }
-export function canManageCatalog(role: DemoRole) { return role === "gestor" || role === "administrador"; }
+export function canManageCatalog(role: DemoRole) {
+  return role === "suporte" || role === "gestor" || role === "administrador";
+}
 export function canManageAnyOccurrence(role: DemoRole) { return role === "gestor" || role === "administrador"; }
