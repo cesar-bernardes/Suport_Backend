@@ -231,7 +231,8 @@ export async function PATCH(request: Request) {
   const hasSeverity = Object.hasOwn(body, "severity");
   const hasStatus = Object.hasOwn(body, "status");
   const hasResponsible = Object.hasOwn(body, "responsibleId");
-  if (!hasDescription && !hasSeverity && !hasStatus && !hasResponsible) {
+  const hasAttachments = Object.hasOwn(body, "attachments");
+  if (!hasDescription && !hasSeverity && !hasStatus && !hasResponsible && !hasAttachments) {
     return apiError(422, "Nenhuma alteração válida foi informada.");
   }
 
@@ -249,6 +250,9 @@ export async function PATCH(request: Request) {
   const responsibleId = hasResponsible
     ? cleanRequiredString(body.responsibleId)
     : current.responsibleId;
+  const attachments = hasAttachments
+    ? parseAttachments(body.attachments)
+    : current.attachments;
 
   if (description === null || description.length > MAX_DESCRIPTION_LENGTH) {
     return apiError(
@@ -265,6 +269,12 @@ export async function PATCH(request: Request) {
   if (!(await validManagedUserId(responsibleId))) {
     return apiError(422, "Responsável inválido.");
   }
+  if (!attachments) {
+    return apiError(
+      422,
+      "Use até 3 evidências nos formatos PNG, JPG, WEBP, MP4 ou TXT.",
+    );
+  }
   if (user.role === "suporte" && responsibleId !== user.id) {
     return apiError(
       403,
@@ -279,13 +289,14 @@ export async function PATCH(request: Request) {
     severity: severity as DemoSeverity,
     status: status as DemoOccurrenceStatus,
     responsibleId,
+    attachments,
     updatedAt,
   };
   await updateStoredOccurrence(occurrence);
 
   return jsonResponse({
     occurrence,
-    changes: { description, severity, status, responsibleId, updatedAt },
+    changes: { description, severity, status, responsibleId, attachments, updatedAt },
   });
 }
 
