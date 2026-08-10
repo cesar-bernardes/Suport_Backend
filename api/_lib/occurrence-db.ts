@@ -1,7 +1,6 @@
 import { ensureIdentitySchema } from "./demo-auth";
-import { INITIAL_STORED_OCCURRENCES, type StoredOccurrence } from "./demo-store";
+import { type StoredOccurrence } from "./demo-store";
 import { requireData, supportDatabase } from "./supabase";
-import { ensureReferenceData } from "./reference-data";
 
 type OccurrenceRow = {
   id: string; number: string; client_id: string; system_id: string;
@@ -11,8 +10,6 @@ type OccurrenceRow = {
   responsible_id: string; author_id: string; attachments_json: unknown;
   created_at: string; updated_at: string;
 };
-
-let schemaPromise: Promise<void> | null = null;
 
 function toOccurrence(row: OccurrenceRow): StoredOccurrence {
   const attachments = Array.isArray(row.attachments_json)
@@ -40,18 +37,8 @@ function toRow(item: StoredOccurrence) {
   };
 }
 
-async function initializeSchema() {
-  await ensureIdentitySchema();
-  await ensureReferenceData();
-  const { error } = await supportDatabase()
-    .from("portal_occurrences")
-    .upsert(INITIAL_STORED_OCCURRENCES.map(toRow), { onConflict: "id", ignoreDuplicates: true });
-  if (error) throw new Error(error.message);
-}
-
 export async function ensureOccurrenceSchema() {
-  schemaPromise ??= initializeSchema().catch((error) => { schemaPromise = null; throw error; });
-  return schemaPromise;
+  await ensureIdentitySchema();
 }
 
 export async function listStoredOccurrences() {
