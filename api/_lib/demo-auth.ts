@@ -18,16 +18,6 @@ export const SESSION_COOKIE = "portal_demo_session";
 export const SESSION_TTL_SECONDS = 8 * 60 * 60;
 export const PASSWORD_ITERATIONS = 100_000;
 
-const BUILTIN_USERS: UserRow[] = [
-  { id: "u1", name: "Marcelo Lima", email: "marcelo@demo.portal", email_normalized: "marcelo@demo.portal", username_normalized: "marcelo", role: "suporte", title: "Analista de suporte", active: true, password_salt: "a539c4efee974531406c32253292a8c6", password_hash: "9e00d615b04344583a8dd55434ecfbdd501792dc7e71443924958171ac3e433a", created_at: "2026-08-06T12:00:00.000Z", updated_at: "2026-08-06T12:00:00.000Z", last_login_at: null, deleted_at: null, deleted_by: null },
-  { id: "u2", name: "Ana Torres", email: "ana@demo.portal", email_normalized: "ana@demo.portal", username_normalized: "ana", role: "gestor", title: "Gestora de suporte", active: true, password_salt: "d7ab1fc371c1f43d8ffea7b4a1350445", password_hash: "e185c2f18ca2209f686c450c9b037e8d08875bad3ab22b28806cdf5b15c49ebd", created_at: "2026-08-06T12:00:00.000Z", updated_at: "2026-08-06T12:00:00.000Z", last_login_at: null, deleted_at: null, deleted_by: null },
-  { id: "u3", name: "Carla Nunes", email: "carla@demo.portal", email_normalized: "carla@demo.portal", username_normalized: "carla", role: "administrador", title: "Administradora", active: true, password_salt: "d792aac07e7dd9255fdec2f0ac8ae325", password_hash: "8febba4e2de1169e308d455b8e6b1c449f4b7e653b3c48f3efc1ecf18364377f", created_at: "2026-08-06T12:00:00.000Z", updated_at: "2026-08-06T12:00:00.000Z", last_login_at: null, deleted_at: null, deleted_by: null },
-  { id: "u4", name: "César", email: "cesar@granddos.tech", email_normalized: "cesar@granddos.tech", username_normalized: "cesar", role: "administrador", title: "Administrador do portal", active: true, password_salt: "9d204865106c7cb5eef93b8e092af48e", password_hash: "16ef4b72fe9c5b20c80bf27fba555efaa0f2dff5622063dd76f00afff134acb0", created_at: "2026-08-06T12:00:00.000Z", updated_at: "2026-08-06T12:00:00.000Z", last_login_at: null, deleted_at: null, deleted_by: null },
-];
-
-export const DEMO_USERS: DemoUser[] = BUILTIN_USERS.map(toDemoUser);
-let schemaPromise: Promise<void> | null = null;
-
 function toDemoUser(row: UserRow): DemoUser {
   return { id: row.id, name: row.name, email: row.email, role: row.role, title: row.title };
 }
@@ -68,14 +58,8 @@ export function isDemoRole(value: unknown): value is DemoRole {
   return ["suporte", "gestor", "administrador"].includes(String(value));
 }
 
-async function initializeSchema() {
-  const { error } = await supportDatabase().from("portal_users")
-    .upsert(BUILTIN_USERS, { onConflict: "id", ignoreDuplicates: true });
-  if (error) throw new Error(error.message);
-}
 export async function ensureIdentitySchema() {
-  schemaPromise ??= initializeSchema().catch((error) => { schemaPromise = null; throw error; });
-  return schemaPromise;
+  return Promise.resolve();
 }
 export async function findUserCredentials(login: string) {
   await ensureIdentitySchema(); const normalized = normalizeLogin(login);
