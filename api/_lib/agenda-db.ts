@@ -1,6 +1,5 @@
 import { ensureIdentitySchema } from "./demo-auth";
 import { requireData, supportDatabase } from "./supabase";
-import { ensureReferenceData } from "./reference-data";
 
 export type AgendaType = "agendado" | "inesperado" | "interno";
 export type AgendaStatus = "planejado" | "em_andamento" | "concluido" | "cancelado";
@@ -20,21 +19,7 @@ type AgendaRow = {
   outcome: string | null; created_at: string; updated_at: string;
 };
 
-const seeds: AgendaEntry[] = [
-  { id: "agenda-demo-1", type: "agendado", title: "Revisar falha de sincronizaÃ§Ã£o",
-    description: "ValidaÃ§Ã£o conjunta com a equipe do cliente.", clientId: "cl2",
-    assigneeId: "u1", createdBy: "u2", scheduledStart: "2026-08-07T13:30:00.000Z",
-    estimatedMinutes: 60, status: "planejado", actualStart: null, actualEnd: null,
-    outcome: null, createdAt: "2026-08-06T18:00:00.000Z", updatedAt: "2026-08-06T18:00:00.000Z" },
-  { id: "agenda-demo-2", type: "interno", title: "AtualizaÃ§Ã£o da base de conhecimento",
-    description: "Documentar o procedimento de recuperaÃ§Ã£o de acesso.", clientId: null,
-    assigneeId: "u1", createdBy: "u1", scheduledStart: "2026-08-07T15:00:00.000Z",
-    estimatedMinutes: 30, status: "planejado", actualStart: null, actualEnd: null,
-    outcome: null, createdAt: "2026-08-06T18:10:00.000Z", updatedAt: "2026-08-06T18:10:00.000Z" },
-];
 const DAILY_LOG_PREFIX = "__daily_log__";
-
-let schemaPromise: Promise<void> | null = null;
 function toEntry(row: AgendaRow): AgendaEntry {
   return { id: row.id, type: row.type, title: row.title, description: row.description,
     clientId: row.client_id, assigneeId: row.assignee_id, createdBy: row.created_by,
@@ -49,16 +34,8 @@ function toRow(entry: AgendaEntry) {
     status: entry.status, actual_start: entry.actualStart, actual_end: entry.actualEnd,
     outcome: entry.outcome, created_at: entry.createdAt, updated_at: entry.updatedAt };
 }
-async function initializeSchema() {
-  await ensureIdentitySchema();
-  await ensureReferenceData();
-  const { error } = await supportDatabase().from("portal_agenda_entries")
-    .upsert(seeds.map(toRow), { onConflict: "id", ignoreDuplicates: true });
-  if (error) throw new Error(error.message);
-}
 export async function ensureAgendaSchema() {
-  schemaPromise ??= initializeSchema().catch((error) => { schemaPromise = null; throw error; });
-  return schemaPromise;
+  await ensureIdentitySchema();
 }
 export async function listAgendaEntries() {
   await ensureAgendaSchema();
