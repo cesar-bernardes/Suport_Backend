@@ -21,17 +21,18 @@ type AgendaRow = {
 };
 
 const seeds: AgendaEntry[] = [
-  { id: "agenda-demo-1", type: "agendado", title: "Revisar falha de sincronização",
-    description: "Validação conjunta com a equipe do cliente.", clientId: "cl2",
+  { id: "agenda-demo-1", type: "agendado", title: "Revisar falha de sincronizaÃ§Ã£o",
+    description: "ValidaÃ§Ã£o conjunta com a equipe do cliente.", clientId: "cl2",
     assigneeId: "u1", createdBy: "u2", scheduledStart: "2026-08-07T13:30:00.000Z",
     estimatedMinutes: 60, status: "planejado", actualStart: null, actualEnd: null,
     outcome: null, createdAt: "2026-08-06T18:00:00.000Z", updatedAt: "2026-08-06T18:00:00.000Z" },
-  { id: "agenda-demo-2", type: "interno", title: "Atualização da base de conhecimento",
-    description: "Documentar o procedimento de recuperação de acesso.", clientId: null,
+  { id: "agenda-demo-2", type: "interno", title: "AtualizaÃ§Ã£o da base de conhecimento",
+    description: "Documentar o procedimento de recuperaÃ§Ã£o de acesso.", clientId: null,
     assigneeId: "u1", createdBy: "u1", scheduledStart: "2026-08-07T15:00:00.000Z",
     estimatedMinutes: 30, status: "planejado", actualStart: null, actualEnd: null,
     outcome: null, createdAt: "2026-08-06T18:10:00.000Z", updatedAt: "2026-08-06T18:10:00.000Z" },
 ];
+const DAILY_LOG_PREFIX = "__daily_log__";
 
 let schemaPromise: Promise<void> | null = null;
 function toEntry(row: AgendaRow): AgendaEntry {
@@ -63,14 +64,17 @@ export async function listAgendaEntries() {
   await ensureAgendaSchema();
   const result = await supportDatabase().from("portal_agenda_entries")
     .select("*").is("deleted_at", null).order("scheduled_start", { ascending: true, nullsFirst: false });
-  return requireData(result).map((row) => toEntry(row as AgendaRow));
+  return requireData(result).map((row) => toEntry(row as AgendaRow))
+    .filter((entry) => !entry.outcome?.startsWith(DAILY_LOG_PREFIX));
 }
 export async function getAgendaEntry(id: string) {
   await ensureAgendaSchema();
   const result = await supportDatabase().from("portal_agenda_entries")
     .select("*").eq("id", id).is("deleted_at", null).maybeSingle();
   if (result.error) throw new Error(result.error.message);
-  return result.data ? toEntry(result.data as AgendaRow) : null;
+  if (!result.data) return null;
+  const entry = toEntry(result.data as AgendaRow);
+  return entry.outcome?.startsWith(DAILY_LOG_PREFIX) ? null : entry;
 }
 export async function createAgendaEntry(input: Omit<AgendaEntry, "id">) {
   await ensureAgendaSchema();

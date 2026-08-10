@@ -1,16 +1,10 @@
 import { createClient } from "@supabase/supabase-js";
-import { env } from "cloudflare:workers";
 
 let client: ReturnType<typeof createClient<any>> | null = null;
 
 function runtimeValue(name: "SUPABASE_URL" | "SUPABASE_SERVICE_ROLE_KEY" | "SUPABASE_SCHEMA") {
-  const workerValue = env[name];
-  if (typeof workerValue === "string" && workerValue.trim()) return workerValue.trim();
-  if (typeof process !== "undefined") {
-    const processValue = process.env[name];
-    if (processValue?.trim()) return processValue.trim();
-  }
-  return "";
+  const value = process.env[name];
+  return value?.trim() || "";
 }
 
 export function supportDatabase() {
