@@ -115,14 +115,11 @@ export async function POST(request: Request) {
 
   const title = cleanText(body.title, 120);
   const problemDescription = cleanText(body.problemDescription, 3000);
-  const actionPlan = cleanText(body.actionPlan, 3000);
-  const analysisInformation = cleanText(body.analysisInformation, 3000);
   const developerId = cleanRequiredString(body.developerId);
   const identifiedAt = cleanRequiredString(body.identifiedAt);
   const identifiedTime = Date.parse(identifiedAt);
   if (title.length < 5) return apiError(422, "Informe um título com pelo menos 5 caracteres.");
   if (problemDescription.length < 10) return apiError(422, "Descreva o problema com pelo menos 10 caracteres.");
-  if (actionPlan.length < 10) return apiError(422, "Informe um plano de ação com pelo menos 10 caracteres.");
   if (!Number.isFinite(identifiedTime)) return apiError(422, "Data de identificação inválida.");
   if (!(await validDeveloper(developerId))) return apiError(422, "Selecione um Desenvolvedor ativo.");
 
@@ -130,7 +127,7 @@ export async function POST(request: Request) {
   let action;
   try {
     action = await createDevelopmentAction({
-      title, problemDescription, actionPlan, analysisInformation,
+      title, problemDescription, actionPlan: "", analysisInformation: "",
       identifiedAt: new Date(identifiedTime).toISOString(),
       supportId: user.id, developerId, dueAt: null, status: "Encaminhada",
       developerNotes: "", resolutionNotes: "", evidencePaths: [], resolvedAt: null,
@@ -188,9 +185,16 @@ export async function PATCH(request: Request) {
 
   const validation = cleanRequiredString(body.validation);
   if (validation === "resolved") {
-    if (current.status !== "Aguardando validação") return apiError(422, "A ação ainda não foi enviada para validação.");
+    if (!current.dueAt) {
+      return apiError(422, "O Desenvolvedor precisa definir uma previsão antes da finalização.");
+    }
+    const resolutionNotes = cleanText(body.resolutionNotes, 3000);
+    const isEarlyClosure = new Date(current.dueAt).getTime() > Date.now();
+    if (isEarlyClosure && resolutionNotes.length < 10) {
+      return apiError(422, "Justifique a finalização antes do prazo com pelo menos 10 caracteres.");
+    }
     const action = await updateDevelopmentAction(id, {
-      status: "Resolvida", resolution_notes: cleanText(body.resolutionNotes, 3000),
+      status: "Resolvida", resolution_notes: resolutionNotes,
       resolved_at: now, updated_at: now,
     });
     return jsonResponse({ action });
