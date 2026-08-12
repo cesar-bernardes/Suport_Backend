@@ -22,7 +22,7 @@ import {
   GET as getDevelopmentActions,
   PATCH as patchDevelopmentAction,
   POST as postDevelopmentAction,
-} from "../development-actions/route";
+} from "../../features/development-actions";
 
 function isDevelopmentActionRequest(request: Request) {
   return new URL(request.url).searchParams.get("scope") === "development-actions";
