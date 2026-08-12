@@ -4,6 +4,7 @@ import {
   getManagedUser,
   isDemoRole,
   listAssignableUsers,
+  listDeveloperUsers,
   listManagedUsers,
   sessionUser,
   softDeleteManagedUser,
@@ -30,6 +31,9 @@ export async function GET(request: Request) {
   const scope = new URL(request.url).searchParams.get("scope");
   if (scope === "assignable") {
     return jsonResponse({ users: await listAssignableUsers() });
+  }
+  if (scope === "developers") {
+    return jsonResponse({ users: await listDeveloperUsers() });
   }
   if (actor.role !== "administrador") {
     return apiError(403, "Somente Administradores podem gerenciar usuários.");
