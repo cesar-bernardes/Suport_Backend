@@ -30,6 +30,7 @@ import {
   readJsonObject,
   sameOriginMutation,
 } from "../_lib/http";
+import { GET as getOccurrenceEvidence, POST as uploadOccurrenceEvidence } from "./evidence/route";
 
 const FUTURE_TOLERANCE_MS = 5 * 60_000;
 const MAX_DESCRIPTION_LENGTH = 1_000;
@@ -61,6 +62,9 @@ function ownsOccurrence(userId: string, occurrence: StoredOccurrence) {
 }
 
 export async function GET(request: Request) {
+  if (new URL(request.url).searchParams.get("evidence") === "1") {
+    return getOccurrenceEvidence(request);
+  }
   const user = await sessionUser(request);
   if (!user) return apiError(401, "Sessão inválida ou expirada.");
 
@@ -85,6 +89,9 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  if (request.headers.get("content-type")?.includes("multipart/form-data")) {
+    return uploadOccurrenceEvidence(request);
+  }
   const user = await sessionUser(request);
   if (!user) return apiError(401, "Sessão inválida ou expirada.");
   if (!sameOriginMutation(request)) {
