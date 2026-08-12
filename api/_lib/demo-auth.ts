@@ -1,6 +1,6 @@
 import { supportDatabase } from "./supabase";
 
-export type DemoRole = "suporte" | "gestor" | "administrador";
+export type DemoRole = "suporte" | "desenvolvedor" | "administrador";
 export type DemoUser = { id: string; name: string; email: string; role: DemoRole; title: string };
 export type ManagedDemoUser = DemoUser & {
   active: boolean; createdAt: string; updatedAt: string; lastLoginAt: string | null;
@@ -51,11 +51,11 @@ export async function verifyPassword(password: string, salt: string, passwordHas
 export function normalizeLogin(value: string) { return value.trim().toLocaleLowerCase("pt-BR"); }
 export function roleTitle(role: DemoRole) {
   if (role === "administrador") return "Administrador do portal";
-  if (role === "gestor") return "Gestor de suporte";
+  if (role === "desenvolvedor") return "Desenvolvedor";
   return "Analista de suporte";
 }
 export function isDemoRole(value: unknown): value is DemoRole {
-  return ["suporte", "gestor", "administrador"].includes(String(value));
+  return ["suporte", "desenvolvedor", "administrador"].includes(String(value));
 }
 
 export async function ensureIdentitySchema() {
@@ -78,7 +78,13 @@ export async function listManagedUsers() {
 }
 export async function listAssignableUsers() {
   await ensureIdentitySchema();
-  const result = await supportDatabase().from("portal_users").select("*").eq("active", true).is("deleted_at", null).order("name");
+  const result = await supportDatabase().from("portal_users").select("*").in("role", ["suporte", "administrador"]).eq("active", true).is("deleted_at", null).order("name");
+  if (result.error) throw new Error(result.error.message);
+  return (result.data as UserRow[]).map(toDemoUser);
+}
+export async function listDeveloperUsers() {
+  await ensureIdentitySchema();
+  const result = await supportDatabase().from("portal_users").select("*").eq("role", "desenvolvedor").eq("active", true).is("deleted_at", null).order("name");
   if (result.error) throw new Error(result.error.message);
   return (result.data as UserRow[]).map(toDemoUser);
 }
@@ -156,6 +162,6 @@ export function isSecureRequest(request: Request) {
   return new URL(request.url).protocol === "https:" || forwarded === "https";
 }
 export function canManageCatalog(role: DemoRole) {
-  return role === "suporte" || role === "gestor" || role === "administrador";
+  return role === "suporte" || role === "administrador";
 }
-export function canManageAnyOccurrence(role: DemoRole) { return role === "gestor" || role === "administrador"; }
+export function canManageAnyOccurrence(role: DemoRole) { return role === "administrador"; }
