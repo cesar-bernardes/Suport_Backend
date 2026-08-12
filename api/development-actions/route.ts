@@ -7,6 +7,7 @@ import {
   type DevelopmentActionStatus,
 } from "../_lib/development-action-db";
 import { apiError, cleanRequiredString, jsonResponse, readJsonObject, sameOriginMutation } from "../_lib/http";
+import { GET as getEvidence, POST as uploadEvidence } from "./evidence/route";
 
 const developerStatuses = new Set<DevelopmentActionStatus>([
   "Em análise", "Em desenvolvimento", "Aguardando validação",
@@ -22,6 +23,9 @@ async function validDeveloper(id: string) {
 }
 
 export async function GET(request: Request) {
+  if (new URL(request.url).searchParams.get("evidence") === "1") {
+    return getEvidence(request);
+  }
   const user = await sessionUser(request);
   if (!user) return apiError(401, "Sessão inválida ou expirada.");
   const actions = await listDevelopmentActions(user.role === "desenvolvedor" ? user.id : undefined);
@@ -29,6 +33,9 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  if (request.headers.get("content-type")?.includes("multipart/form-data")) {
+    return uploadEvidence(request);
+  }
   const user = await sessionUser(request);
   if (!user) return apiError(401, "Sessão inválida ou expirada.");
   if (!(["suporte", "administrador"] as string[]).includes(user.role)) {
