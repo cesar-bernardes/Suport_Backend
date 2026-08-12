@@ -3,6 +3,7 @@ import {
   createDevelopmentAction,
   getDevelopmentAction,
   listDevelopmentActions,
+  softDeleteDevelopmentAction,
   updateDevelopmentAction,
   type DevelopmentActionStatus,
 } from "../api/_lib/development-action-db";
@@ -221,4 +222,24 @@ export async function PATCH(request: Request) {
     updated_at: now,
   });
   return jsonResponse({ action });
+}
+
+export async function DELETE(request: Request) {
+  const user = await sessionUser(request);
+  if (!user) return apiError(401, "Sessão inválida ou expirada.");
+  if (user.role !== "administrador") {
+    return apiError(403, "Somente Administradores podem excluir ações de desenvolvimento.");
+  }
+  if (!sameOriginMutation(request)) {
+    return apiError(403, "Origem da requisição não autorizada.");
+  }
+
+  const id = new URL(request.url).searchParams.get("id")?.trim();
+  if (!id) return apiError(422, "Ação de desenvolvimento não informada.");
+  const current = await getDevelopmentAction(id);
+  if (!current) return apiError(422, "Ação de desenvolvimento não encontrada.");
+
+  const deleted = await softDeleteDevelopmentAction(id, user.id);
+  if (!deleted) return apiError(422, "Não foi possível excluir a ação.");
+  return jsonResponse({ deleted: true, id });
 }

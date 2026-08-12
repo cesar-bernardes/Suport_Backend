@@ -109,3 +109,12 @@ export async function updateDevelopmentAction(id: string, changes: Record<string
   if (result.error) throw new Error(result.error.message);
   return result.data ? toAction(result.data as ActionRow) : null;
 }
+
+export async function softDeleteDevelopmentAction(id: string, actorId: string) {
+  const now = new Date().toISOString();
+  const result = await supportDatabase().from("development_actions")
+    .update({ deleted_at: now, deleted_by: actorId, updated_at: now })
+    .eq("id", id).is("deleted_at", null).select("id").maybeSingle();
+  if (result.error) throw new Error(result.error.message);
+  return Boolean(result.data);
+}

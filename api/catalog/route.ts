@@ -19,6 +19,7 @@ import {
   sameOriginMutation,
 } from "../_lib/http";
 import {
+  DELETE as deleteDevelopmentAction,
   GET as getDevelopmentActions,
   PATCH as patchDevelopmentAction,
   POST as postDevelopmentAction,
@@ -199,4 +200,9 @@ export async function PATCH(request: Request) {
     updatedAt: new Date().toISOString(),
   };
   return jsonResponse({ item: await updateStoredCatalogItem(item) });
+}
+
+export async function DELETE(request: Request) {
+  if (isDevelopmentActionRequest(request)) return deleteDevelopmentAction(request);
+  return apiError(405, "Operação não permitida neste endereço.");
 }
