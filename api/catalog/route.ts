@@ -18,6 +18,15 @@ import {
   readJsonObject,
   sameOriginMutation,
 } from "../_lib/http";
+import {
+  GET as getDevelopmentActions,
+  PATCH as patchDevelopmentAction,
+  POST as postDevelopmentAction,
+} from "../development-actions/route";
+
+function isDevelopmentActionRequest(request: Request) {
+  return new URL(request.url).searchParams.get("scope") === "development-actions";
+}
 
 const MIN_NAME_LENGTH = 5;
 const MAX_NAME_LENGTH = 100;
@@ -53,12 +62,14 @@ function validateName(value: unknown) {
 }
 
 export async function GET(request: Request) {
+  if (isDevelopmentActionRequest(request)) return getDevelopmentActions(request);
   const user = await sessionUser(request);
   if (!user) return apiError(401, "Sessão inválida ou expirada.");
   return jsonResponse({ items: await listStoredCatalogItems() });
 }
 
 export async function POST(request: Request) {
+  if (isDevelopmentActionRequest(request)) return postDevelopmentAction(request);
   const user = await sessionUser(request);
   if (!user) return apiError(401, "Sessão inválida ou expirada.");
   if (!canManageCatalog(user.role)) {
@@ -120,6 +131,7 @@ export async function POST(request: Request) {
 }
 
 export async function PATCH(request: Request) {
+  if (isDevelopmentActionRequest(request)) return patchDevelopmentAction(request);
   const user = await sessionUser(request);
   if (!user) return apiError(401, "Sessão inválida ou expirada.");
   if (!canManageCatalog(user.role)) {
