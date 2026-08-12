@@ -127,13 +127,30 @@ export async function POST(request: Request) {
   if (!(await validDeveloper(developerId))) return apiError(422, "Selecione um Desenvolvedor ativo.");
 
   const now = new Date().toISOString();
-  const action = await createDevelopmentAction({
-    title, problemDescription, actionPlan, analysisInformation,
-    identifiedAt: new Date(identifiedTime).toISOString(),
-    supportId: user.id, developerId, dueAt: null, status: "Encaminhada",
-    developerNotes: "", resolutionNotes: "", evidencePaths: [], resolvedAt: null,
-    createdAt: now, updatedAt: now,
-  });
+  let action;
+  try {
+    action = await createDevelopmentAction({
+      title, problemDescription, actionPlan, analysisInformation,
+      identifiedAt: new Date(identifiedTime).toISOString(),
+      supportId: user.id, developerId, dueAt: null, status: "Encaminhada",
+      developerNotes: "", resolutionNotes: "", evidencePaths: [], resolvedAt: null,
+      createdAt: now, updatedAt: now,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "";
+    console.error("[development-actions] failed to create action", {
+      supportId: user.id,
+      developerId,
+      error: message,
+    });
+    if (/development_actions|schema cache|permission denied|relation .* does not exist/i.test(message)) {
+      return apiError(
+        503,
+        "A tabela de Ações para Desenvolvedores ainda não está disponível no Supabase. Execute development_actions.sql e tente novamente.",
+      );
+    }
+    throw error;
+  }
   return jsonResponse({ action }, { status: 201 });
 }
 

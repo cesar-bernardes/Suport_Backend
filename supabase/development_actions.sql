@@ -36,3 +36,13 @@ create index if not exists development_actions_active_idx
 
 comment on table suporte.development_actions is
   'Ações encaminhadas pelo suporte para análise e correção pelos desenvolvedores.';
+
+-- O backend usa a chave service_role e precisa de permissão explícita em schemas
+-- personalizados. Estas concessões são idempotentes.
+grant usage on schema suporte to service_role;
+grant select, insert, update, delete
+  on table suporte.development_actions
+  to service_role;
+
+-- Atualiza imediatamente o cache de estrutura utilizado pela API do Supabase.
+notify pgrst, 'reload schema';
