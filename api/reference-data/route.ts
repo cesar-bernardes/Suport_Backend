@@ -12,7 +12,7 @@ import { supportDatabase } from "../_lib/supabase";
 type ReferenceKind = "system" | "module";
 
 function canManage(role: string) {
-  return role === "suporte" || role === "gestor" || role === "administrador";
+  return role === "suporte" || role === "administrador";
 }
 
 function validKind(value: unknown): value is ReferenceKind {
