@@ -69,7 +69,23 @@ export async function POST(request: Request) {
     return apiError(422, "A senha temporária deve ter entre 8 e 128 caracteres.");
   }
 
-  const user = await createManagedUser({ name, email, role: body.role, password });
+  let user;
+  try {
+    user = await createManagedUser({ name, email, role: body.role, password });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "";
+    console.error("[api/users] failed to create user", {
+      role: body.role,
+      error: message,
+    });
+    if (/role|check constraint|violates check/i.test(message)) {
+      return apiError(
+        503,
+        "O banco de dados ainda não está preparado para o perfil Desenvolvedor. Execute a migração developer_role.sql no Supabase e tente novamente.",
+      );
+    }
+    throw error;
+  }
   if (!user) {
     return apiError(409, "Já existe um usuário com este e-mail ou nome de acesso.");
   }

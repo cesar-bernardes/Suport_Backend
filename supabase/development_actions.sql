@@ -1,3 +1,6 @@
+-- Execute developer_role.sql antes deste arquivo para liberar o perfil
+-- "desenvolvedor" em suporte.portal_users.
+
 create table if not exists suporte.development_actions (
   id text primary key,
   number text not null unique,
