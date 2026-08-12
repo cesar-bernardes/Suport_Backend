@@ -7,7 +7,75 @@ import {
   type DevelopmentActionStatus,
 } from "../_lib/development-action-db";
 import { apiError, cleanRequiredString, jsonResponse, readJsonObject, sameOriginMutation } from "../_lib/http";
-import { GET as getEvidence, POST as uploadEvidence } from "./evidence/route";
+import { supportSupabase } from "../_lib/supabase";
+
+const EVIDENCE_BUCKET = "development-action-evidence";
+const MAX_EVIDENCE_FILES = 5;
+const MAX_EVIDENCE_SIZE = 10 * 1024 * 1024;
+const ALLOWED_EVIDENCE_TYPES = new Set(["image/png", "image/jpeg", "image/webp", "video/mp4", "text/plain", "application/pdf"]);
+
+function canAccessEvidence(user: { id: string; role: string }, supportId: string, developerId: string) {
+  return user.role === "administrador" || user.id === supportId || user.id === developerId || user.role === "suporte";
+}
+
+function safeEvidenceName(name: string) {
+  return name.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/^-+|-+$/g, "").slice(-120);
+}
+
+async function ensureEvidenceBucket() {
+  const storage = supportSupabase().storage;
+  const current = await storage.getBucket(EVIDENCE_BUCKET);
+  if (!current.error) return;
+  const created = await storage.createBucket(EVIDENCE_BUCKET, {
+    public: false, fileSizeLimit: MAX_EVIDENCE_SIZE, allowedMimeTypes: [...ALLOWED_EVIDENCE_TYPES],
+  });
+  if (created.error && !/already exists/i.test(created.error.message)) throw new Error(created.error.message);
+}
+
+async function uploadEvidence(request: Request) {
+  const user = await sessionUser(request);
+  if (!user) return apiError(401, "Sessão inválida ou expirada.");
+  if (!sameOriginMutation(request)) return apiError(403, "Origem da requisição não autorizada.");
+  const form = await request.formData().catch(() => null);
+  const actionId = form?.get("actionId");
+  const action = typeof actionId === "string" ? await getDevelopmentAction(actionId.trim()) : null;
+  if (!action) return apiError(422, "Ação não encontrada.");
+  if (!canAccessEvidence(user, action.supportId, action.developerId)) return apiError(403, "Você não pode anexar evidências nesta ação.");
+  const files = form!.getAll("files").filter((item): item is File => item instanceof File);
+  if (!files.length || action.evidencePaths.length + files.length > MAX_EVIDENCE_FILES) return apiError(422, "A ação pode ter no máximo 5 evidências.");
+  if (files.some((file) => !ALLOWED_EVIDENCE_TYPES.has(file.type) || file.size > MAX_EVIDENCE_SIZE)) return apiError(422, "Use PNG, JPG, WEBP, MP4, PDF ou TXT de até 10 MB cada.");
+  await ensureEvidenceBucket();
+  const storage = supportSupabase().storage.from(EVIDENCE_BUCKET);
+  const uploaded: string[] = [];
+  try {
+    for (const file of files) {
+      const path = `${action.id}/${crypto.randomUUID()}-${safeEvidenceName(file.name) || "evidencia"}`;
+      const result = await storage.upload(path, file, { contentType: file.type, upsert: false });
+      if (result.error) throw new Error(result.error.message);
+      uploaded.push(path);
+    }
+    const updated = await updateDevelopmentAction(action.id, { evidence_json: [...action.evidencePaths, ...uploaded], updated_at: new Date().toISOString() });
+    return jsonResponse({ action: updated }, { status: 201 });
+  } catch (error) {
+    if (uploaded.length) await storage.remove(uploaded);
+    return apiError(500, error instanceof Error ? error.message : "Não foi possível enviar as evidências.");
+  }
+}
+
+async function getEvidence(request: Request) {
+  const user = await sessionUser(request);
+  if (!user) return apiError(401, "Sessão inválida ou expirada.");
+  const url = new URL(request.url);
+  const actionId = url.searchParams.get("actionId")?.trim();
+  const path = url.searchParams.get("path")?.trim();
+  const action = actionId ? await getDevelopmentAction(actionId) : null;
+  if (!action || !path || !canAccessEvidence(user, action.supportId, action.developerId)) return apiError(403, "Você não pode acessar esta evidência.");
+  if (!action.evidencePaths.includes(path) || !path.startsWith(`${action.id}/`)) return apiError(404, "Evidência não encontrada.");
+  const signed = await supportSupabase().storage.from(EVIDENCE_BUCKET).createSignedUrl(path, 60);
+  if (signed.error || !signed.data?.signedUrl) return apiError(500, "Não foi possível abrir a evidência.");
+  return Response.redirect(signed.data.signedUrl, 302);
+}
 
 const developerStatuses = new Set<DevelopmentActionStatus>([
   "Em análise", "Em desenvolvimento", "Aguardando validação",
