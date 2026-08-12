@@ -9,7 +9,7 @@ export const portalUsers = sqliteTable(
     emailNormalized: text("email_normalized").notNull(),
     usernameNormalized: text("username_normalized").notNull(),
     role: text("role", {
-      enum: ["suporte", "gestor", "administrador"],
+      enum: ["suporte", "desenvolvedor", "administrador"],
     }).notNull(),
     title: text("title").notNull(),
     active: integer("active", { mode: "boolean" }).notNull().default(true),
