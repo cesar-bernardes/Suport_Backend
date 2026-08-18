@@ -11,6 +11,8 @@ create table if not exists suporte.development_actions (
   identified_at timestamptz not null,
   support_id text not null references suporte.portal_users(id),
   developer_id text not null references suporte.portal_users(id),
+  system_id text references suporte.systems(id),
+  module_id text references suporte.modules(id),
   urgency text not null default 'Médio' check (urgency in ('Leve', 'Médio', 'Urgente')),
   due_at timestamptz,
   status text not null default 'Encaminhada' check (
@@ -47,6 +49,29 @@ exception
   when duplicate_object then null;
 end $$;
 
+-- Vincula novas ações aos Sistemas e Módulos reais do Catálogo.
+alter table suporte.development_actions
+  add column if not exists system_id text,
+  add column if not exists module_id text;
+
+do $$
+begin
+  alter table suporte.development_actions
+    add constraint development_actions_system_id_fkey
+    foreign key (system_id) references suporte.systems(id);
+exception
+  when duplicate_object then null;
+end $$;
+
+do $$
+begin
+  alter table suporte.development_actions
+    add constraint development_actions_module_id_fkey
+    foreign key (module_id) references suporte.modules(id);
+exception
+  when duplicate_object then null;
+end $$;
+
 create index if not exists development_actions_developer_idx
   on suporte.development_actions (developer_id, status, due_at);
 
@@ -55,6 +80,9 @@ create index if not exists development_actions_support_idx
 
 create index if not exists development_actions_active_idx
   on suporte.development_actions (deleted_at, updated_at desc);
+
+create index if not exists development_actions_reference_idx
+  on suporte.development_actions (system_id, module_id);
 
 comment on table suporte.development_actions is
   'Ações encaminhadas pelo suporte para análise e correção pelos desenvolvedores.';

@@ -18,6 +18,8 @@ export type DevelopmentAction = {
   identifiedAt: string;
   supportId: string;
   developerId: string;
+  systemId: string | null;
+  moduleId: string | null;
   urgency: DevelopmentActionUrgency;
   dueAt: string | null;
   status: DevelopmentActionStatus;
@@ -32,7 +34,8 @@ export type DevelopmentAction = {
 type ActionRow = {
   id: string; number: string; title: string; problem_description: string;
   action_plan: string; analysis_information: string; identified_at: string;
-  support_id: string; developer_id: string; due_at: string | null;
+  support_id: string; developer_id: string;
+  system_id: string | null; module_id: string | null; due_at: string | null;
   urgency: DevelopmentActionUrgency | null;
   status: DevelopmentActionStatus; developer_notes: string | null;
   resolution_notes: string | null; evidence_json: unknown;
@@ -50,6 +53,8 @@ function toAction(row: ActionRow): DevelopmentAction {
     identifiedAt: row.identified_at,
     supportId: row.support_id,
     developerId: row.developer_id,
+    systemId: row.system_id,
+    moduleId: row.module_id,
     urgency: row.urgency || "Médio",
     dueAt: row.due_at,
     status: row.status,
@@ -93,6 +98,8 @@ export async function createDevelopmentAction(input: Omit<DevelopmentAction, "id
     identified_at: input.identifiedAt,
     support_id: input.supportId,
     developer_id: input.developerId,
+    system_id: input.systemId,
+    module_id: input.moduleId,
     urgency: input.urgency,
     due_at: input.dueAt,
     status: input.status,

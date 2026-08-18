@@ -9,6 +9,7 @@ import {
   type DevelopmentActionStatus,
 } from "../api/_lib/development-action-db";
 import { apiError, cleanRequiredString, jsonResponse, readJsonObject, sameOriginMutation } from "../api/_lib/http";
+import { validSystemModule } from "../api/_lib/reference-data";
 import { supportSupabase } from "../api/_lib/supabase";
 
 const EVIDENCE_BUCKET = "development-action-evidence";
@@ -119,6 +120,8 @@ export async function POST(request: Request) {
   const title = cleanText(body.title, 120);
   const problemDescription = cleanText(body.problemDescription, 3000);
   const developerId = cleanRequiredString(body.developerId);
+  const systemId = cleanRequiredString(body.systemId);
+  const moduleId = cleanRequiredString(body.moduleId);
   const urgency = cleanRequiredString(body.urgency) as DevelopmentActionUrgency;
   const identifiedAt = cleanRequiredString(body.identifiedAt);
   const identifiedTime = Date.parse(identifiedAt);
@@ -126,6 +129,9 @@ export async function POST(request: Request) {
   if (problemDescription.length < 10) return apiError(422, "Descreva o problema com pelo menos 10 caracteres.");
   if (!Number.isFinite(identifiedTime)) return apiError(422, "Data de identificação inválida.");
   if (!(await validDeveloper(developerId))) return apiError(422, "Selecione um Desenvolvedor ativo.");
+  if (!systemId || !moduleId || !(await validSystemModule(systemId, moduleId))) {
+    return apiError(422, "Selecione um Sistema e um Módulo ativos do Catálogo.");
+  }
   if (!actionUrgencies.has(urgency)) return apiError(422, "Selecione uma urgência válida.");
 
   const now = new Date().toISOString();
@@ -134,7 +140,8 @@ export async function POST(request: Request) {
     action = await createDevelopmentAction({
       title, problemDescription, actionPlan: "", analysisInformation: "",
       identifiedAt: new Date(identifiedTime).toISOString(),
-      supportId: user.id, developerId, urgency, dueAt: null, status: "Encaminhada",
+      supportId: user.id, developerId, systemId, moduleId,
+      urgency, dueAt: null, status: "Encaminhada",
       developerNotes: "", resolutionNotes: "", evidencePaths: [], resolvedAt: null,
       createdAt: now, updatedAt: now,
     });
@@ -217,6 +224,11 @@ export async function PATCH(request: Request) {
 
   const developerId = cleanRequiredString(body.developerId) || current.developerId;
   if (!(await validDeveloper(developerId))) return apiError(422, "Selecione um Desenvolvedor ativo.");
+  const systemId = cleanRequiredString(body.systemId) || current.systemId;
+  const moduleId = cleanRequiredString(body.moduleId) || current.moduleId;
+  if ((systemId || moduleId) && (!systemId || !moduleId || !(await validSystemModule(systemId, moduleId)))) {
+    return apiError(422, "Selecione um Sistema e um Módulo ativos do Catálogo.");
+  }
   const urgency = (cleanRequiredString(body.urgency) || current.urgency) as DevelopmentActionUrgency;
   if (!actionUrgencies.has(urgency)) return apiError(422, "Selecione uma urgência válida.");
   const action = await updateDevelopmentAction(id, {
@@ -225,6 +237,8 @@ export async function PATCH(request: Request) {
     action_plan: cleanText(body.actionPlan, 3000) || current.actionPlan,
     analysis_information: cleanText(body.analysisInformation, 3000),
     developer_id: developerId,
+    system_id: systemId || null,
+    module_id: moduleId || null,
     urgency,
     updated_at: now,
   });
