@@ -174,6 +174,45 @@ export async function PATCH(request: Request) {
   if (!current) return apiError(422, "Ação não encontrada.");
   const now = new Date().toISOString();
 
+  if (cleanRequiredString(body.mode) === "metadata") {
+    const canEdit = user.role === "administrador"
+      || user.role === "suporte"
+      || (user.role === "desenvolvedor" && current.developerId === user.id);
+    if (!canEdit) return apiError(403, "Você não pode editar as informações desta ação.");
+
+    const title = cleanText(body.title, 120);
+    const problemDescription = cleanText(body.problemDescription, 3000);
+    const systemId = cleanRequiredString(body.systemId);
+    const moduleId = cleanRequiredString(body.moduleId);
+    const urgency = cleanRequiredString(body.urgency) as DevelopmentActionUrgency;
+    const identifiedAt = cleanRequiredString(body.identifiedAt);
+    const identifiedTime = Date.parse(identifiedAt);
+    const developerId = user.role === "desenvolvedor"
+      ? current.developerId
+      : cleanRequiredString(body.developerId) || current.developerId;
+
+    if (title.length < 5) return apiError(422, "Informe um título com pelo menos 5 caracteres.");
+    if (problemDescription.length < 10) return apiError(422, "Descreva o problema com pelo menos 10 caracteres.");
+    if (!Number.isFinite(identifiedTime)) return apiError(422, "Data de identificação inválida.");
+    if (!(await validDeveloper(developerId))) return apiError(422, "Selecione um Desenvolvedor ativo.");
+    if (!systemId || !moduleId || !(await validSystemModule(systemId, moduleId))) {
+      return apiError(422, "Selecione um Sistema e um Módulo ativos do Catálogo.");
+    }
+    if (!actionUrgencies.has(urgency)) return apiError(422, "Selecione uma urgência válida.");
+
+    const action = await updateDevelopmentAction(id, {
+      title,
+      problem_description: problemDescription,
+      identified_at: new Date(identifiedTime).toISOString(),
+      developer_id: developerId,
+      system_id: systemId,
+      module_id: moduleId,
+      urgency,
+      updated_at: now,
+    });
+    return jsonResponse({ action });
+  }
+
   if (user.role === "desenvolvedor") {
     if (current.developerId !== user.id) return apiError(403, "Esta ação não foi atribuída a você.");
     if (current.status === "Resolvida") return apiError(422, "Esta ação já foi encerrada.");
