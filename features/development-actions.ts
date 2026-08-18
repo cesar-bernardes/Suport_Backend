@@ -175,9 +175,7 @@ export async function PATCH(request: Request) {
   const now = new Date().toISOString();
 
   if (cleanRequiredString(body.mode) === "metadata") {
-    const canEdit = user.role === "administrador"
-      || user.role === "suporte"
-      || (user.role === "desenvolvedor" && current.developerId === user.id);
+    const canEdit = user.role === "administrador" || user.role === "suporte";
     if (!canEdit) return apiError(403, "Você não pode editar as informações desta ação.");
 
     const title = cleanText(body.title, 120);
@@ -187,9 +185,7 @@ export async function PATCH(request: Request) {
     const urgency = cleanRequiredString(body.urgency) as DevelopmentActionUrgency;
     const identifiedAt = cleanRequiredString(body.identifiedAt);
     const identifiedTime = Date.parse(identifiedAt);
-    const developerId = user.role === "desenvolvedor"
-      ? current.developerId
-      : cleanRequiredString(body.developerId) || current.developerId;
+    const developerId = cleanRequiredString(body.developerId) || current.developerId;
 
     if (title.length < 5) return apiError(422, "Informe um título com pelo menos 5 caracteres.");
     if (problemDescription.length < 10) return apiError(422, "Descreva o problema com pelo menos 10 caracteres.");
