@@ -5,6 +5,7 @@ import {
   listDevelopmentActions,
   softDeleteDevelopmentAction,
   updateDevelopmentAction,
+  type DevelopmentActionUrgency,
   type DevelopmentActionStatus,
 } from "../api/_lib/development-action-db";
 import { apiError, cleanRequiredString, jsonResponse, readJsonObject, sameOriginMutation } from "../api/_lib/http";
@@ -81,6 +82,7 @@ async function getEvidence(request: Request) {
 const developerStatuses = new Set<DevelopmentActionStatus>([
   "Em análise", "Em desenvolvimento", "Aguardando validação",
 ]);
+const actionUrgencies = new Set<DevelopmentActionUrgency>(["Leve", "Médio", "Urgente"]);
 
 function cleanText(value: unknown, max: number) {
   return typeof value === "string" ? value.trim().replace(/\s+/g, " ").slice(0, max) : "";
@@ -117,12 +119,14 @@ export async function POST(request: Request) {
   const title = cleanText(body.title, 120);
   const problemDescription = cleanText(body.problemDescription, 3000);
   const developerId = cleanRequiredString(body.developerId);
+  const urgency = cleanRequiredString(body.urgency) as DevelopmentActionUrgency;
   const identifiedAt = cleanRequiredString(body.identifiedAt);
   const identifiedTime = Date.parse(identifiedAt);
   if (title.length < 5) return apiError(422, "Informe um título com pelo menos 5 caracteres.");
   if (problemDescription.length < 10) return apiError(422, "Descreva o problema com pelo menos 10 caracteres.");
   if (!Number.isFinite(identifiedTime)) return apiError(422, "Data de identificação inválida.");
   if (!(await validDeveloper(developerId))) return apiError(422, "Selecione um Desenvolvedor ativo.");
+  if (!actionUrgencies.has(urgency)) return apiError(422, "Selecione uma urgência válida.");
 
   const now = new Date().toISOString();
   let action;
@@ -130,7 +134,7 @@ export async function POST(request: Request) {
     action = await createDevelopmentAction({
       title, problemDescription, actionPlan: "", analysisInformation: "",
       identifiedAt: new Date(identifiedTime).toISOString(),
-      supportId: user.id, developerId, dueAt: null, status: "Encaminhada",
+      supportId: user.id, developerId, urgency, dueAt: null, status: "Encaminhada",
       developerNotes: "", resolutionNotes: "", evidencePaths: [], resolvedAt: null,
       createdAt: now, updatedAt: now,
     });
@@ -213,12 +217,15 @@ export async function PATCH(request: Request) {
 
   const developerId = cleanRequiredString(body.developerId) || current.developerId;
   if (!(await validDeveloper(developerId))) return apiError(422, "Selecione um Desenvolvedor ativo.");
+  const urgency = (cleanRequiredString(body.urgency) || current.urgency) as DevelopmentActionUrgency;
+  if (!actionUrgencies.has(urgency)) return apiError(422, "Selecione uma urgência válida.");
   const action = await updateDevelopmentAction(id, {
     title: cleanText(body.title, 120) || current.title,
     problem_description: cleanText(body.problemDescription, 3000) || current.problemDescription,
     action_plan: cleanText(body.actionPlan, 3000) || current.actionPlan,
     analysis_information: cleanText(body.analysisInformation, 3000),
     developer_id: developerId,
+    urgency,
     updated_at: now,
   });
   return jsonResponse({ action });

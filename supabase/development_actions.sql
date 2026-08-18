@@ -11,6 +11,7 @@ create table if not exists suporte.development_actions (
   identified_at timestamptz not null,
   support_id text not null references suporte.portal_users(id),
   developer_id text not null references suporte.portal_users(id),
+  urgency text not null default 'Médio' check (urgency in ('Leve', 'Médio', 'Urgente')),
   due_at timestamptz,
   status text not null default 'Encaminhada' check (
     status in ('Encaminhada', 'Em análise', 'Em desenvolvimento', 'Aguardando validação', 'Resolvida')
@@ -24,6 +25,27 @@ create table if not exists suporte.development_actions (
   deleted_at timestamptz,
   deleted_by text references suporte.portal_users(id)
 );
+
+-- Atualiza instalações existentes sem apagar nem recriar ações.
+alter table suporte.development_actions
+  add column if not exists urgency text;
+
+update suporte.development_actions
+set urgency = 'Médio'
+where urgency is null;
+
+alter table suporte.development_actions
+  alter column urgency set default 'Médio',
+  alter column urgency set not null;
+
+do $$
+begin
+  alter table suporte.development_actions
+    add constraint development_actions_urgency_check
+    check (urgency in ('Leve', 'Médio', 'Urgente'));
+exception
+  when duplicate_object then null;
+end $$;
 
 create index if not exists development_actions_developer_idx
   on suporte.development_actions (developer_id, status, due_at);
