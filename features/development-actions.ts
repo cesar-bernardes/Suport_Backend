@@ -72,7 +72,7 @@ async function getEvidence(request: Request) {
   const url = new URL(request.url);
   const actionId = url.searchParams.get("actionId")?.trim();
   const path = url.searchParams.get("path")?.trim();
-  const action = actionId ? await getDevelopmentAction(actionId) : null;
+  const action = actionId ? await getDevelopmentAction(actionId, true) : null;
   if (!action || !path || !canAccessEvidence(user, action.supportId, action.developerId)) return apiError(403, "Você não pode acessar esta evidência.");
   if (!action.evidencePaths.includes(path) || !path.startsWith(`${action.id}/`)) return apiError(404, "Evidência não encontrada.");
   const signed = await supportSupabase().storage.from(EVIDENCE_BUCKET).createSignedUrl(path, 60);
@@ -81,7 +81,10 @@ async function getEvidence(request: Request) {
 }
 
 const developerStatuses = new Set<DevelopmentActionStatus>([
-  "Em análise", "Em desenvolvimento", "Aguardando validação",
+  "Em desenvolvimento",
+]);
+const actionStatuses = new Set<DevelopmentActionStatus>([
+  "Encaminhada", "Em análise", "Em desenvolvimento", "Aguardando validação", "Reprovada", "Resolvida",
 ]);
 const actionUrgencies = new Set<DevelopmentActionUrgency>(["Leve", "Médio", "Urgente"]);
 
@@ -100,7 +103,11 @@ export async function GET(request: Request) {
   }
   const user = await sessionUser(request);
   if (!user) return apiError(401, "Sessão inválida ou expirada.");
-  const actions = await listDevelopmentActions(user.role === "desenvolvedor" ? user.id : undefined);
+  const archived = new URL(request.url).searchParams.get("archived") === "1";
+  if (archived && user.role !== "administrador") {
+    return apiError(403, "Somente Administradores podem visualizar ações arquivadas.");
+  }
+  const actions = await listDevelopmentActions(user.role === "desenvolvedor" ? user.id : undefined, archived);
   return jsonResponse({ actions });
 }
 
@@ -143,6 +150,7 @@ export async function POST(request: Request) {
       supportId: user.id, developerId, systemId, moduleId,
       urgency, dueAt: null, status: "Encaminhada",
       developerNotes: "", resolutionNotes: "", evidencePaths: [], resolvedAt: null,
+      archivedAt: null, archivedBy: null,
       createdAt: now, updatedAt: now,
     });
   } catch (error) {
@@ -170,11 +178,41 @@ export async function PATCH(request: Request) {
   const body = await readJsonObject(request);
   if (!body) return apiError(422, "Revise os dados da ação.");
   const id = cleanRequiredString(body.id);
-  const current = id ? await getDevelopmentAction(id) : null;
+  const mode = cleanRequiredString(body.mode);
+  const current = id ? await getDevelopmentAction(id, mode === "archive") : null;
   if (!current) return apiError(422, "Ação não encontrada.");
   const now = new Date().toISOString();
 
-  if (cleanRequiredString(body.mode) === "metadata") {
+  if (mode === "archive") {
+    if (user.role !== "administrador") return apiError(403, "Somente Administradores podem arquivar ações.");
+    const archived = body.archived === true;
+    if (archived && current.status !== "Resolvida" && current.status !== "Reprovada") {
+      return apiError(422, "Somente ações resolvidas ou reprovadas podem ser arquivadas.");
+    }
+    const action = await updateDevelopmentAction(id, {
+      archived_at: archived ? now : null,
+      archived_by: archived ? user.id : null,
+      updated_at: now,
+    });
+    return jsonResponse({ action });
+  }
+
+  if (mode === "status") {
+    const canMove = user.role === "desenvolvedor" && current.developerId === user.id;
+    if (!canMove) return apiError(403, "Você não pode mover esta ação.");
+
+    const status = cleanRequiredString(body.status) as DevelopmentActionStatus;
+    if (!actionStatuses.has(status)) return apiError(422, "Selecione um status válido.");
+
+    const action = await updateDevelopmentAction(id, {
+      status,
+      resolved_at: status === "Resolvida" ? current.resolvedAt || now : null,
+      updated_at: now,
+    });
+    return jsonResponse({ action });
+  }
+
+  if (mode === "metadata") {
     const canEdit = user.role === "administrador" || user.role === "suporte";
     if (!canEdit) return apiError(403, "Você não pode editar as informações desta ação.");
 

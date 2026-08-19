@@ -5,6 +5,7 @@ export type DevelopmentActionStatus =
   | "Em análise"
   | "Em desenvolvimento"
   | "Aguardando validação"
+  | "Reprovada"
   | "Resolvida";
 export type DevelopmentActionUrgency = "Leve" | "Médio" | "Urgente";
 
@@ -27,6 +28,8 @@ export type DevelopmentAction = {
   resolutionNotes: string;
   evidencePaths: string[];
   resolvedAt: string | null;
+  archivedAt: string | null;
+  archivedBy: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -39,7 +42,8 @@ type ActionRow = {
   urgency: DevelopmentActionUrgency | null;
   status: DevelopmentActionStatus; developer_notes: string | null;
   resolution_notes: string | null; evidence_json: unknown;
-  resolved_at: string | null; created_at: string; updated_at: string;
+  resolved_at: string | null; archived_at: string | null; archived_by: string | null;
+  created_at: string; updated_at: string;
 };
 
 function toAction(row: ActionRow): DevelopmentAction {
@@ -57,29 +61,51 @@ function toAction(row: ActionRow): DevelopmentAction {
     moduleId: row.module_id,
     urgency: row.urgency || "Médio",
     dueAt: row.due_at,
-    status: row.status,
+    status: row.status === "Em análise" || row.status === "Aguardando validação" ? "Em desenvolvimento" : row.status,
     developerNotes: row.developer_notes || "",
     resolutionNotes: row.resolution_notes || "",
     evidencePaths: Array.isArray(row.evidence_json)
       ? row.evidence_json.filter((item): item is string => typeof item === "string")
       : [],
     resolvedAt: row.resolved_at,
+    archivedAt: row.archived_at || null,
+    archivedBy: row.archived_by || null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
 }
 
-export async function listDevelopmentActions(developerId?: string) {
+function archiveColumnsMissing(message: string | undefined) {
+  return Boolean(message && /archived_(at|by).*does not exist|schema cache.*archived_/i.test(message));
+}
+
+export async function listDevelopmentActions(developerId?: string, archived = false) {
   let query = supportDatabase().from("development_actions").select("*")
-    .is("deleted_at", null).order("identified_at", { ascending: false });
+    .is("deleted_at", null).order(archived ? "archived_at" : "identified_at", { ascending: false });
+  query = archived ? query.not("archived_at", "is", null) : query.is("archived_at", null);
   if (developerId) query = query.eq("developer_id", developerId);
-  const result = await query;
+  let result = await query;
+  if (result.error && archiveColumnsMissing(result.error.message)) {
+    if (archived) {
+      throw new Error("Execute add_development_action_archive.sql no Supabase para habilitar o arquivo de ações.");
+    }
+    let fallback = supportDatabase().from("development_actions").select("*")
+      .is("deleted_at", null).order("identified_at", { ascending: false });
+    if (developerId) fallback = fallback.eq("developer_id", developerId);
+    result = await fallback;
+  }
   return requireData(result).map((row) => toAction(row as ActionRow));
 }
 
-export async function getDevelopmentAction(id: string) {
-  const result = await supportDatabase().from("development_actions").select("*")
-    .eq("id", id).is("deleted_at", null).maybeSingle();
+export async function getDevelopmentAction(id: string, includeArchived = false) {
+  let query = supportDatabase().from("development_actions").select("*")
+    .eq("id", id).is("deleted_at", null);
+  if (!includeArchived) query = query.is("archived_at", null);
+  let result = await query.maybeSingle();
+  if (result.error && !includeArchived && archiveColumnsMissing(result.error.message)) {
+    result = await supportDatabase().from("development_actions").select("*")
+      .eq("id", id).is("deleted_at", null).maybeSingle();
+  }
   if (result.error) throw new Error(result.error.message);
   return result.data ? toAction(result.data as ActionRow) : null;
 }
@@ -107,6 +133,8 @@ export async function createDevelopmentAction(input: Omit<DevelopmentAction, "id
     resolution_notes: input.resolutionNotes,
     evidence_json: input.evidencePaths,
     resolved_at: input.resolvedAt,
+    archived_at: input.archivedAt,
+    archived_by: input.archivedBy,
     created_at: input.createdAt,
     updated_at: input.updatedAt,
   };

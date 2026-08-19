@@ -16,12 +16,14 @@ create table if not exists suporte.development_actions (
   urgency text not null default 'Médio' check (urgency in ('Leve', 'Médio', 'Urgente')),
   due_at timestamptz,
   status text not null default 'Encaminhada' check (
-    status in ('Encaminhada', 'Em análise', 'Em desenvolvimento', 'Aguardando validação', 'Resolvida')
+    status in ('Encaminhada', 'Em análise', 'Em desenvolvimento', 'Aguardando validação', 'Reprovada', 'Resolvida')
   ),
   developer_notes text not null default '',
   resolution_notes text not null default '',
   evidence_json jsonb not null default '[]'::jsonb,
   resolved_at timestamptz,
+  archived_at timestamptz,
+  archived_by text references suporte.portal_users(id),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   deleted_at timestamptz,
@@ -80,6 +82,9 @@ create index if not exists development_actions_support_idx
 
 create index if not exists development_actions_active_idx
   on suporte.development_actions (deleted_at, updated_at desc);
+
+create index if not exists development_actions_archive_idx
+  on suporte.development_actions (archived_at, status);
 
 create index if not exists development_actions_reference_idx
   on suporte.development_actions (system_id, module_id);
