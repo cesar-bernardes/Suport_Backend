@@ -82,6 +82,7 @@ async function getEvidence(request: Request) {
 
 const developerStatuses = new Set<DevelopmentActionStatus>([
   "Em desenvolvimento",
+  "Resolvida",
 ]);
 const actionStatuses = new Set<DevelopmentActionStatus>([
   "Encaminhada", "Em análise", "Em desenvolvimento", "Aguardando validação", "Reprovada", "Resolvida",
@@ -261,10 +262,12 @@ export async function PATCH(request: Request) {
     const dueTime = Date.parse(dueAt);
     if (!developerStatuses.has(status)) return apiError(422, "Status inválido para o Desenvolvedor.");
     if (!Number.isFinite(dueTime)) return apiError(422, "Informe a data prevista para resolução.");
-    if (dueTime < Date.now() - 5 * 60_000) return apiError(422, "A previsão não pode estar no passado.");
+    if (status !== "Resolvida" && dueTime < Date.now() - 5 * 60_000) return apiError(422, "A previsão não pode estar no passado.");
     const action = await updateDevelopmentAction(id, {
       status, developer_notes: developerNotes,
-      due_at: new Date(dueTime).toISOString(), updated_at: now,
+      due_at: new Date(dueTime).toISOString(),
+      resolved_at: status === "Resolvida" ? current.resolvedAt || now : null,
+      updated_at: now,
     });
     return jsonResponse({ action });
   }
@@ -275,19 +278,7 @@ export async function PATCH(request: Request) {
 
   const validation = cleanRequiredString(body.validation);
   if (validation === "resolved") {
-    if (!current.dueAt) {
-      return apiError(422, "O Desenvolvedor precisa definir uma previsão antes da finalização.");
-    }
-    const resolutionNotes = cleanText(body.resolutionNotes, 3000);
-    const isEarlyClosure = new Date(current.dueAt).getTime() > Date.now();
-    if (isEarlyClosure && resolutionNotes.length < 10) {
-      return apiError(422, "Justifique a finalização antes do prazo com pelo menos 10 caracteres.");
-    }
-    const action = await updateDevelopmentAction(id, {
-      status: "Resolvida", resolution_notes: resolutionNotes,
-      resolved_at: now, updated_at: now,
-    });
-    return jsonResponse({ action });
+    return apiError(403, "Somente o Desenvolvedor responsável pode finalizar esta ação.");
   }
   if (validation === "reopen") {
     if (current.status !== "Aguardando validação") return apiError(422, "A ação ainda não foi enviada para validação.");
