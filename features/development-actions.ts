@@ -184,8 +184,13 @@ export async function PATCH(request: Request) {
   const now = new Date().toISOString();
 
   if (mode === "archive") {
-    if (user.role !== "administrador") return apiError(403, "Somente Administradores podem arquivar ações.");
     const archived = body.archived === true;
+    if (archived && user.role !== "administrador" && user.role !== "suporte") {
+      return apiError(403, "Somente Administradores e Suporte podem arquivar ações.");
+    }
+    if (!archived && user.role !== "administrador") {
+      return apiError(403, "Somente Administradores podem restaurar ações arquivadas.");
+    }
     if (archived && current.status !== "Resolvida" && current.status !== "Reprovada") {
       return apiError(422, "Somente ações resolvidas ou reprovadas podem ser arquivadas.");
     }
