@@ -83,6 +83,7 @@ async function getEvidence(request: Request) {
 const developerStatuses = new Set<DevelopmentActionStatus>([
   "Em desenvolvimento",
   "Resolvida",
+  "Reprovada",
 ]);
 const actionStatuses = new Set<DevelopmentActionStatus>([
   "Encaminhada", "Em análise", "Em desenvolvimento", "Aguardando validação", "Reprovada", "Resolvida",
@@ -261,11 +262,11 @@ export async function PATCH(request: Request) {
     const dueAt = cleanRequiredString(body.dueAt);
     const dueTime = Date.parse(dueAt);
     if (!developerStatuses.has(status)) return apiError(422, "Status inválido para o Desenvolvedor.");
-    if (!Number.isFinite(dueTime)) return apiError(422, "Informe a data prevista para resolução.");
-    if (status !== "Resolvida" && dueTime < Date.now() - 5 * 60_000) return apiError(422, "A previsão não pode estar no passado.");
+    if (status === "Em desenvolvimento" && !Number.isFinite(dueTime)) return apiError(422, "Informe a data prevista para resolução.");
+    if (status === "Em desenvolvimento" && dueTime < Date.now() - 5 * 60_000) return apiError(422, "A previsão não pode estar no passado.");
     const action = await updateDevelopmentAction(id, {
       status, developer_notes: developerNotes,
-      due_at: new Date(dueTime).toISOString(),
+      due_at: Number.isFinite(dueTime) ? new Date(dueTime).toISOString() : current.dueAt,
       resolved_at: status === "Resolvida" ? current.resolvedAt || now : null,
       updated_at: now,
     });
