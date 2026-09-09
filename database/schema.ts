@@ -38,6 +38,7 @@ export const portalOccurrences = sqliteTable(
     id: text("id").primaryKey().notNull(),
     number: text("number").notNull(),
     clientId: text("client_id").notNull(),
+    otherClient: text("other_client"),
     systemId: text("system_id").notNull(),
     moduleId: text("module_id").notNull(),
     catalogItemId: text("catalog_item_id"),

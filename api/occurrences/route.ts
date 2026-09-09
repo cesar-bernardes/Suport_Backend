@@ -35,6 +35,7 @@ import { GET as getOccurrenceEvidence, POST as uploadOccurrenceEvidence } from "
 const FUTURE_TOLERANCE_MS = 5 * 60_000;
 const MAX_DESCRIPTION_LENGTH = 1_000;
 const MAX_OTHER_ERROR_LENGTH = 120;
+const MAX_OTHER_CLIENT_LENGTH = 120;
 const MAX_ATTACHMENTS = 3;
 const ALLOWED_ATTACHMENT = /\.(png|jpe?g|webp|mp4|txt)$/i;
 const severitySet = new Set<string>(SEVERITIES);
@@ -101,7 +102,10 @@ export async function POST(request: Request) {
   const body = await readJsonObject(request);
   if (!body) return apiError(422, "Revise os dados da ocorrência.");
 
-  const clientId = cleanRequiredString(body.clientId);
+  const clientChoice = cleanRequiredString(body.clientId);
+  const otherClient = clientChoice === "other"
+    ? cleanRequiredString(body.otherClient).replace(/\s+/g, " ")
+    : "";
   const systemId = cleanRequiredString(body.systemId);
   const moduleId = cleanRequiredString(body.moduleId);
   const catalogChoice = cleanRequiredString(body.catalogChoice);
@@ -113,7 +117,7 @@ export async function POST(request: Request) {
     typeof body.description === "string" ? body.description.trim() : "";
 
   if (
-    !clientId ||
+    !clientChoice ||
     !systemId ||
     !moduleId ||
     !catalogChoice ||
@@ -124,8 +128,15 @@ export async function POST(request: Request) {
   ) {
     return apiError(422, "Revise os campos obrigatórios.");
   }
-  if (!(await validClient(clientId)) || !(await validSystemModule(systemId, moduleId))) {
-    return apiError(422, "Cliente, sistema ou módulo inválido.");
+  if (clientChoice === "other") {
+    if (otherClient.length < 2 || otherClient.length > MAX_OTHER_CLIENT_LENGTH) {
+      return apiError(422, `Informe a pessoa ou identificação entre 2 e ${MAX_OTHER_CLIENT_LENGTH} caracteres.`);
+    }
+  } else if (!(await validClient(clientChoice))) {
+    return apiError(422, "Selecione uma empresa válida ou a opção Outros.");
+  }
+  if (!(await validSystemModule(systemId, moduleId))) {
+    return apiError(422, "Sistema ou módulo inválido.");
   }
   if (!severitySet.has(severity)) {
     return apiError(422, "Gravidade inválida.");
@@ -193,7 +204,8 @@ export async function POST(request: Request) {
 
   const now = new Date().toISOString();
   const occurrence = await createStoredOccurrence({
-    clientId,
+    clientId: clientChoice === "other" ? "" : clientChoice,
+    ...(otherClient ? { otherClient } : {}),
     systemId,
     moduleId,
     ...(catalogItemId ? { catalogItemId } : {}),

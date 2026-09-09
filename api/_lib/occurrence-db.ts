@@ -4,6 +4,7 @@ import { requireData, supportDatabase } from "./supabase";
 
 type OccurrenceRow = {
   id: string; number: string; client_id: string; system_id: string;
+  other_client: string | null;
   module_id: string; catalog_item_id: string | null; other_error: string | null;
   description: string; severity: StoredOccurrence["severity"];
   occurred_at: string; status: StoredOccurrence["status"];
@@ -17,6 +18,7 @@ function toOccurrence(row: OccurrenceRow): StoredOccurrence {
     : [];
   return {
     id: row.id, number: row.number, clientId: row.client_id,
+    ...(row.other_client ? { otherClient: row.other_client } : {}),
     systemId: row.system_id, moduleId: row.module_id,
     ...(row.catalog_item_id ? { catalogItemId: row.catalog_item_id } : {}),
     ...(row.other_error ? { otherError: row.other_error } : {}),
@@ -29,6 +31,7 @@ function toOccurrence(row: OccurrenceRow): StoredOccurrence {
 function toRow(item: StoredOccurrence) {
   return {
     id: item.id, number: item.number, client_id: item.clientId,
+    other_client: item.otherClient ?? null,
     system_id: item.systemId, module_id: item.moduleId,
     catalog_item_id: item.catalogItemId ?? null, other_error: item.otherError ?? null,
     description: item.description, severity: item.severity, occurred_at: item.occurredAt,
@@ -60,6 +63,7 @@ export async function createStoredOccurrence(input: Omit<StoredOccurrence, "id" 
   await ensureOccurrenceSchema();
   const payload = {
     id: `o-${crypto.randomUUID()}`, client_id: input.clientId,
+    other_client: input.otherClient ?? null,
     system_id: input.systemId, module_id: input.moduleId,
     catalog_item_id: input.catalogItemId ?? null, other_error: input.otherError ?? null,
     description: input.description, severity: input.severity, occurred_at: input.occurredAt,

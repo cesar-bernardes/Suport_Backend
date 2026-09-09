@@ -14,6 +14,7 @@ export type StoredOccurrence = {
   id: string;
   number: string;
   clientId: string;
+  otherClient?: string;
   systemId: string;
   moduleId: string;
   catalogItemId?: string;

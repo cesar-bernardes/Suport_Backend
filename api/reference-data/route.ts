@@ -9,14 +9,14 @@ import {
 import { listReferenceData } from "../_lib/reference-data";
 import { supportDatabase } from "../_lib/supabase";
 
-type ReferenceKind = "system" | "module";
+type ReferenceKind = "client" | "system" | "module";
 
 function canManage(role: string) {
   return role === "suporte" || role === "administrador";
 }
 
 function validKind(value: unknown): value is ReferenceKind {
-  return value === "system" || value === "module";
+  return value === "client" || value === "system" || value === "module";
 }
 
 function cleanName(value: unknown) {
@@ -29,8 +29,9 @@ async function duplicateName(
   systemId?: string,
   ignoredId?: string,
 ) {
+  const table = kind === "client" ? "clients" : kind === "system" ? "systems" : "modules";
   let query = supportDatabase()
-    .from(kind === "system" ? "systems" : "modules")
+    .from(table)
     .select("id,name")
     .eq("active", true)
     .is("deleted_at", null);
@@ -49,7 +50,7 @@ async function requireManager(request: Request) {
   const user = await sessionUser(request);
   if (!user) return { error: apiError(401, "Sessão inválida ou expirada.") };
   if (!canManage(user.role)) {
-    return { error: apiError(403, "Seu perfil não pode gerenciar sistemas e módulos.") };
+    return { error: apiError(403, "Seu perfil não pode gerenciar empresas, sistemas e módulos.") };
   }
   if (!sameOriginMutation(request)) {
     return { error: apiError(403, "Origem da requisição não autorizada.") };
@@ -74,7 +75,18 @@ export async function POST(request: Request) {
   }
 
   const db = supportDatabase();
-  if (body.kind === "system") {
+  if (body.kind === "client") {
+    if (await duplicateName("client", name)) {
+      return apiError(409, "Já existe uma empresa ativa com este nome.");
+    }
+    const client = await db.from("clients").insert({
+      id: crypto.randomUUID(),
+      name,
+      active: true,
+      deleted_at: null,
+    });
+    if (client.error) return apiError(500, client.error.message);
+  } else if (body.kind === "system") {
     if (await duplicateName("system", name)) {
       return apiError(409, "Já existe um sistema ativo com este nome.");
     }
@@ -134,7 +146,15 @@ export async function PATCH(request: Request) {
   }
 
   const db = supportDatabase();
-  if (body.kind === "system") {
+  if (body.kind === "client") {
+    if (await duplicateName("client", name, undefined, id)) {
+      return apiError(409, "Já existe uma empresa ativa com este nome.");
+    }
+    const result = await db.from("clients").update({ name }).eq("id", id)
+      .eq("active", true).is("deleted_at", null).select("id").maybeSingle();
+    if (result.error) return apiError(500, result.error.message);
+    if (!result.data) return apiError(404, "Empresa não encontrada.");
+  } else if (body.kind === "system") {
     if (await duplicateName("system", name, undefined, id)) {
       return apiError(409, "Já existe um sistema ativo com este nome.");
     }
@@ -174,6 +194,21 @@ export async function DELETE(request: Request) {
   if (!validKind(kind) || !id) return apiError(422, "Cadastro inválido.");
 
   const db = supportDatabase();
+  if (kind === "client") {
+    const occurrenceUsage = await db.from("portal_occurrences")
+      .select("id", { count: "exact", head: true }).eq("client_id", id).is("deleted_at", null);
+    if (occurrenceUsage.error) return apiError(500, occurrenceUsage.error.message);
+    if ((occurrenceUsage.count || 0) > 0) {
+      return apiError(409, "Esta empresa está em uso em uma ocorrência e não pode ser excluída.");
+    }
+    const now = new Date().toISOString();
+    const result = await db.from("clients").update({ active: false, deleted_at: now })
+      .eq("id", id).is("deleted_at", null).select("id").maybeSingle();
+    if (result.error) return apiError(500, result.error.message);
+    if (!result.data) return apiError(404, "Empresa não encontrada.");
+    return jsonResponse(await listReferenceData());
+  }
+
   const field = kind === "system" ? "system_id" : "module_id";
   const [catalogUsage, occurrenceUsage] = await Promise.all([
     db.from("catalog_items").select("id", { count: "exact", head: true })

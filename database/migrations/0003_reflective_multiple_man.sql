@@ -1,0 +1,1 @@
+ALTER TABLE `portal_occurrences` ADD `other_client` text;
