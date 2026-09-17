@@ -1,17 +1,6 @@
 import { NextResponse } from "next/server";
 
-const DEFAULT_ALLOWED_MUTATION_ORIGINS = [
-  "https://suporte-front.vercel.app",
-  "https://portal-ocorrencias-suporte-2026.cesar727476.chatgpt.site",
-];
-
-function allowedMutationOrigins() {
-  const configured = (process.env.ALLOWED_ORIGINS || "")
-    .split(",")
-    .map((origin) => origin.trim())
-    .filter(Boolean);
-  return new Set([...DEFAULT_ALLOWED_MUTATION_ORIGINS, ...configured]);
-}
+export { sameOriginMutation } from "./request-security";
 
 export function jsonResponse(
   body: unknown,
@@ -33,22 +22,6 @@ export async function readJsonObject(request: Request) {
     return value as Record<string, unknown>;
   } catch {
     return null;
-  }
-}
-
-export function sameOriginMutation(request: Request) {
-  const origin = request.headers.get("origin");
-  if (!origin) return true;
-
-  try {
-    const requestOrigin = new URL(request.url).origin;
-    const callerOrigin = new URL(origin).origin;
-    return (
-      callerOrigin === requestOrigin ||
-      allowedMutationOrigins().has(callerOrigin)
-    );
-  } catch {
-    return false;
   }
 }
 

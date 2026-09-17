@@ -84,7 +84,7 @@ export async function updateStoredOccurrence(occurrence: StoredOccurrence) {
       updated_at: occurrence.updatedAt })
     .eq("id", occurrence.id).is("deleted_at", null).select("*").maybeSingle();
   if (result.error) throw new Error(result.error.message);
-  return result.data ? toOccurrence(result.data as OccurrenceRow) : occurrence;
+  return result.data ? toOccurrence(result.data as OccurrenceRow) : null;
 }
 
 export async function softDeleteStoredOccurrence(id: string, actorId: string) {

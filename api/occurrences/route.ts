@@ -30,6 +30,7 @@ import {
   readJsonObject,
   sameOriginMutation,
 } from "../_lib/http";
+import { normalizeOccurrenceDateTime } from "../_lib/occurrence-date-time";
 import { GET as getOccurrenceEvidence, POST as uploadOccurrenceEvidence } from "./evidence/route";
 
 const FUTURE_TOLERANCE_MS = 5 * 60_000;
@@ -154,10 +155,11 @@ export async function POST(request: Request) {
     );
   }
 
-  const occurrenceTime = Date.parse(occurredAt);
-  if (!Number.isFinite(occurrenceTime)) {
+  const normalizedOccurredAt = normalizeOccurrenceDateTime(occurredAt);
+  if (!normalizedOccurredAt) {
     return apiError(422, "Data da ocorrência inválida.");
   }
+  const occurrenceTime = Date.parse(normalizedOccurredAt);
   if (occurrenceTime > Date.now() + FUTURE_TOLERANCE_MS) {
     return apiError(422, "A data da ocorrência não pode estar no futuro.");
   }
@@ -212,7 +214,7 @@ export async function POST(request: Request) {
     ...(otherError ? { otherError } : {}),
     description,
     severity: severity as DemoSeverity,
-    occurredAt: new Date(occurrenceTime).toISOString(),
+    occurredAt: normalizedOccurredAt,
     status: status as DemoOccurrenceStatus,
     responsibleId,
     authorId: user.id,
@@ -311,11 +313,21 @@ export async function PATCH(request: Request) {
     attachments,
     updatedAt,
   };
-  await updateStoredOccurrence(occurrence);
+  const savedOccurrence = await updateStoredOccurrence(occurrence);
+  if (!savedOccurrence) {
+    return apiError(404, "Ocorrência não encontrada durante a atualização.");
+  }
 
   return jsonResponse({
-    occurrence,
-    changes: { description, severity, status, responsibleId, attachments, updatedAt },
+    occurrence: savedOccurrence,
+    changes: {
+      description: savedOccurrence.description,
+      severity: savedOccurrence.severity,
+      status: savedOccurrence.status,
+      responsibleId: savedOccurrence.responsibleId,
+      attachments: savedOccurrence.attachments,
+      updatedAt: savedOccurrence.updatedAt,
+    },
   });
 }
 
