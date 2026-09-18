@@ -29,6 +29,11 @@ PERSISTENT_LOGIN_RATE_LIMIT=false
 
 A chave de serviço deve permanecer somente no backend.
 
+O perfil exibido como **Implementador** conserva o valor técnico
+`desenvolvedor` em `portal_users.role`. Assim, contas e ações existentes
+continuam válidas sem migração de dados. Implementadores podem criar,
+acompanhar, editar, mover e arquivar ações concluídas, como o Suporte.
+
 `ALLOWED_ORIGINS` aceita uma lista separada por vírgulas. Use somente origens
 adicionais realmente necessárias; requisições que chegam pelo proxy normal são
 validadas por `Origin` e `X-Forwarded-Host`.

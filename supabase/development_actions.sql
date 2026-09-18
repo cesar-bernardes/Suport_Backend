@@ -90,7 +90,7 @@ create index if not exists development_actions_reference_idx
   on suporte.development_actions (system_id, module_id);
 
 comment on table suporte.development_actions is
-  'Ações encaminhadas pelo suporte para análise e correção pelos desenvolvedores.';
+  'Ações criadas pelo suporte ou implementadores para análise e correção.';
 
 -- O backend usa a chave service_role e precisa de permissão explícita em schemas
 -- personalizados. Estas concessões são idempotentes.

@@ -18,7 +18,7 @@ const MAX_EVIDENCE_SIZE = 10 * 1024 * 1024;
 const ALLOWED_EVIDENCE_TYPES = new Set(["image/png", "image/jpeg", "image/webp", "video/mp4", "text/plain", "application/pdf"]);
 
 function canAccessEvidence(user: { id: string; role: string }, supportId: string, developerId: string) {
-  return user.role === "administrador" || user.id === supportId || user.id === developerId || user.role === "suporte";
+  return user.role === "administrador" || user.role === "suporte" || user.role === "desenvolvedor" || user.id === supportId || user.id === developerId;
 }
 
 function safeEvidenceName(name: string) {
@@ -109,7 +109,7 @@ export async function GET(request: Request) {
   if (archived && user.role !== "administrador") {
     return apiError(403, "Somente Administradores podem visualizar ações arquivadas.");
   }
-  const actions = await listDevelopmentActions(user.role === "desenvolvedor" ? user.id : undefined, archived);
+  const actions = await listDevelopmentActions(undefined, archived);
   return jsonResponse({ actions });
 }
 
@@ -119,8 +119,8 @@ export async function POST(request: Request) {
   }
   const user = await sessionUser(request);
   if (!user) return apiError(401, "Sessão inválida ou expirada.");
-  if (!(["suporte", "administrador"] as string[]).includes(user.role)) {
-    return apiError(403, "Somente o Suporte pode encaminhar ações.");
+  if (!(["suporte", "desenvolvedor", "administrador"] as string[]).includes(user.role)) {
+    return apiError(403, "Você não pode criar ações.");
   }
   if (!sameOriginMutation(request)) return apiError(403, "Origem da requisição não autorizada.");
   const body = await readJsonObject(request);
@@ -137,7 +137,7 @@ export async function POST(request: Request) {
   if (title.length < 5) return apiError(422, "Informe um título com pelo menos 5 caracteres.");
   if (problemDescription.length < 10) return apiError(422, "Descreva o problema com pelo menos 10 caracteres.");
   if (!Number.isFinite(identifiedTime)) return apiError(422, "Data de identificação inválida.");
-  if (!(await validDeveloper(developerId))) return apiError(422, "Selecione um Desenvolvedor ativo.");
+  if (!(await validDeveloper(developerId))) return apiError(422, "Selecione um Implementador ativo.");
   if (!systemId || !moduleId || !(await validSystemModule(systemId, moduleId))) {
     return apiError(422, "Selecione um Sistema e um Módulo ativos do Catálogo.");
   }
@@ -165,7 +165,7 @@ export async function POST(request: Request) {
     if (/development_actions|schema cache|permission denied|relation .* does not exist/i.test(message)) {
       return apiError(
         503,
-        "A tabela de Ações para Desenvolvedores ainda não está disponível no Supabase. Execute development_actions.sql e tente novamente.",
+        "A tabela de Ações ainda não está disponível no Supabase. Execute development_actions.sql e tente novamente.",
       );
     }
     throw error;
@@ -187,8 +187,8 @@ export async function PATCH(request: Request) {
 
   if (mode === "archive") {
     const archived = body.archived === true;
-    if (archived && user.role !== "administrador" && user.role !== "suporte") {
-      return apiError(403, "Somente Administradores e Suporte podem arquivar ações.");
+    if (archived && !(["administrador", "suporte", "desenvolvedor"] as string[]).includes(user.role)) {
+      return apiError(403, "Você não pode arquivar ações.");
     }
     if (!archived && user.role !== "administrador") {
       return apiError(403, "Somente Administradores podem restaurar ações arquivadas.");
@@ -205,9 +205,7 @@ export async function PATCH(request: Request) {
   }
 
   if (mode === "status") {
-    const canMove =
-      user.role === "suporte" ||
-      (user.role === "desenvolvedor" && current.developerId === user.id);
+    const canMove = user.role === "suporte" || user.role === "desenvolvedor";
     if (!canMove) return apiError(403, "Você não pode mover esta ação.");
 
     const status = cleanRequiredString(body.status) as DevelopmentActionStatus;
@@ -222,7 +220,7 @@ export async function PATCH(request: Request) {
   }
 
   if (mode === "metadata") {
-    const canEdit = user.role === "administrador" || user.role === "suporte";
+    const canEdit = user.role === "administrador" || user.role === "suporte" || user.role === "desenvolvedor";
     if (!canEdit) return apiError(403, "Você não pode editar as informações desta ação.");
 
     const title = cleanText(body.title, 120);
@@ -237,7 +235,7 @@ export async function PATCH(request: Request) {
     if (title.length < 5) return apiError(422, "Informe um título com pelo menos 5 caracteres.");
     if (problemDescription.length < 10) return apiError(422, "Descreva o problema com pelo menos 10 caracteres.");
     if (!Number.isFinite(identifiedTime)) return apiError(422, "Data de identificação inválida.");
-    if (!(await validDeveloper(developerId))) return apiError(422, "Selecione um Desenvolvedor ativo.");
+    if (!(await validDeveloper(developerId))) return apiError(422, "Selecione um Implementador ativo.");
     if (!systemId || !moduleId || !(await validSystemModule(systemId, moduleId))) {
       return apiError(422, "Selecione um Sistema e um Módulo ativos do Catálogo.");
     }
@@ -257,9 +255,6 @@ export async function PATCH(request: Request) {
   }
 
   if (user.role === "desenvolvedor" || user.role === "suporte") {
-    if (user.role === "desenvolvedor" && current.developerId !== user.id) {
-      return apiError(403, "Esta ação não foi atribuída a você.");
-    }
     if (current.status === "Resolvida") return apiError(422, "Esta ação já foi encerrada.");
     const status = cleanRequiredString(body.status) as DevelopmentActionStatus;
     const developerNotes = cleanText(body.developerNotes, 3000);
@@ -283,7 +278,7 @@ export async function PATCH(request: Request) {
 
   const validation = cleanRequiredString(body.validation);
   if (validation === "resolved") {
-    return apiError(403, "Somente o Desenvolvedor responsável ou o Suporte podem finalizar esta ação.");
+    return apiError(403, "Use o acompanhamento da ação para finalizar.");
   }
   if (validation === "reopen") {
     if (current.status !== "Aguardando validação") return apiError(422, "A ação ainda não foi enviada para validação.");
@@ -297,7 +292,7 @@ export async function PATCH(request: Request) {
   }
 
   const developerId = cleanRequiredString(body.developerId) || current.developerId;
-  if (!(await validDeveloper(developerId))) return apiError(422, "Selecione um Desenvolvedor ativo.");
+  if (!(await validDeveloper(developerId))) return apiError(422, "Selecione um Implementador ativo.");
   const systemId = cleanRequiredString(body.systemId) || current.systemId;
   const moduleId = cleanRequiredString(body.moduleId) || current.moduleId;
   if ((systemId || moduleId) && (!systemId || !moduleId || !(await validSystemModule(systemId, moduleId)))) {

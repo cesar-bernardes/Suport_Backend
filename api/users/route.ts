@@ -81,7 +81,7 @@ export async function POST(request: Request) {
     if (/role|check constraint|violates check/i.test(message)) {
       return apiError(
         503,
-        "O banco de dados ainda não está preparado para o perfil Desenvolvedor. Execute a migração developer_role.sql no Supabase e tente novamente.",
+        "O banco de dados ainda não está preparado para o perfil Implementador. Execute a migração developer_role.sql no Supabase e tente novamente.",
       );
     }
     throw error;

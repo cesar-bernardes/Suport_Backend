@@ -19,7 +19,10 @@ export const SESSION_TTL_SECONDS = 8 * 60 * 60;
 export const PASSWORD_ITERATIONS = 100_000;
 
 function toDemoUser(row: UserRow): DemoUser {
-  return { id: row.id, name: row.name, email: row.email, role: row.role, title: row.title };
+  const title = row.role === "desenvolvedor" && row.title === "Desenvolvedor"
+    ? "Implementador"
+    : row.title;
+  return { id: row.id, name: row.name, email: row.email, role: row.role, title };
 }
 function toManagedUser(row: UserRow): ManagedDemoUser {
   return { ...toDemoUser(row), active: row.active, createdAt: row.created_at,
@@ -51,7 +54,7 @@ export async function verifyPassword(password: string, salt: string, passwordHas
 export function normalizeLogin(value: string) { return value.trim().toLocaleLowerCase("pt-BR"); }
 export function roleTitle(role: DemoRole) {
   if (role === "administrador") return "Administrador do portal";
-  if (role === "desenvolvedor") return "Desenvolvedor";
+  if (role === "desenvolvedor") return "Implementador";
   return "Analista de suporte";
 }
 export function isDemoRole(value: unknown): value is DemoRole {
