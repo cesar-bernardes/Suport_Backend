@@ -205,7 +205,9 @@ export async function PATCH(request: Request) {
   }
 
   if (mode === "status") {
-    const canMove = user.role === "desenvolvedor" && current.developerId === user.id;
+    const canMove =
+      user.role === "suporte" ||
+      (user.role === "desenvolvedor" && current.developerId === user.id);
     if (!canMove) return apiError(403, "Você não pode mover esta ação.");
 
     const status = cleanRequiredString(body.status) as DevelopmentActionStatus;
@@ -254,14 +256,16 @@ export async function PATCH(request: Request) {
     return jsonResponse({ action });
   }
 
-  if (user.role === "desenvolvedor") {
-    if (current.developerId !== user.id) return apiError(403, "Esta ação não foi atribuída a você.");
+  if (user.role === "desenvolvedor" || user.role === "suporte") {
+    if (user.role === "desenvolvedor" && current.developerId !== user.id) {
+      return apiError(403, "Esta ação não foi atribuída a você.");
+    }
     if (current.status === "Resolvida") return apiError(422, "Esta ação já foi encerrada.");
     const status = cleanRequiredString(body.status) as DevelopmentActionStatus;
     const developerNotes = cleanText(body.developerNotes, 3000);
     const dueAt = cleanRequiredString(body.dueAt);
     const dueTime = Date.parse(dueAt);
-    if (!developerStatuses.has(status)) return apiError(422, "Status inválido para o Desenvolvedor.");
+    if (!developerStatuses.has(status)) return apiError(422, "Status inválido para esta ação.");
     if (status === "Em desenvolvimento" && !Number.isFinite(dueTime)) return apiError(422, "Informe a data prevista para resolução.");
     if (status === "Em desenvolvimento" && dueTime < Date.now() - 5 * 60_000) return apiError(422, "A previsão não pode estar no passado.");
     const action = await updateDevelopmentAction(id, {
@@ -279,7 +283,7 @@ export async function PATCH(request: Request) {
 
   const validation = cleanRequiredString(body.validation);
   if (validation === "resolved") {
-    return apiError(403, "Somente o Desenvolvedor responsável pode finalizar esta ação.");
+    return apiError(403, "Somente o Desenvolvedor responsável ou o Suporte podem finalizar esta ação.");
   }
   if (validation === "reopen") {
     if (current.status !== "Aguardando validação") return apiError(422, "A ação ainda não foi enviada para validação.");
