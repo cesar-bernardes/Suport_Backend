@@ -1,5 +1,5 @@
 import { canManageAnyOccurrence, sessionUser, type DemoRole } from "../../_lib/demo-auth";
-import { getStoredOccurrence } from "../../_lib/occurrence-db";
+import { getStoredOccurrence, updateStoredOccurrence } from "../../_lib/occurrence-db";
 import { apiError, jsonResponse, sameOriginMutation } from "../../_lib/http";
 import { supportSupabase } from "../../_lib/supabase";
 
@@ -60,8 +60,11 @@ export async function POST(request: Request) {
     return apiError(403, "Você não tem permissão para anexar evidências.");
   }
 
+  const storedAttachments = occurrence.attachments.filter((path) =>
+    path.startsWith(`${occurrence.id}/`),
+  );
   const files = form.getAll("files").filter((item): item is File => item instanceof File);
-  if (!files.length || files.length > MAX_FILES || occurrence.attachments.length + files.length > MAX_FILES) {
+  if (!files.length || files.length > MAX_FILES || storedAttachments.length + files.length > MAX_FILES) {
     return apiError(422, "A ocorrência pode ter no máximo 3 evidências.");
   }
   if (files.some((file) => !ALLOWED_TYPES.has(file.type) || file.size > MAX_FILE_SIZE)) {
@@ -82,12 +85,24 @@ export async function POST(request: Request) {
       if (result.error) throw new Error(result.error.message);
       uploaded.push(path);
     }
+
+    const savedOccurrence = await updateStoredOccurrence({
+      ...occurrence,
+      attachments: [...storedAttachments, ...uploaded],
+      updatedAt: new Date().toISOString(),
+    });
+    if (!savedOccurrence) {
+      throw new Error("A ocorrência não foi encontrada ao salvar as evidências.");
+    }
+
+    return jsonResponse(
+      { attachments: uploaded, occurrence: savedOccurrence },
+      { status: 201 },
+    );
   } catch (error) {
     if (uploaded.length) await storage.remove(uploaded);
     return apiError(500, error instanceof Error ? error.message : "Não foi possível enviar as evidências.");
   }
-
-  return jsonResponse({ attachments: uploaded }, { status: 201 });
 }
 
 export async function GET(request: Request) {

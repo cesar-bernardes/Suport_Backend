@@ -171,6 +171,12 @@ export async function POST(request: Request) {
       "Use até 3 evidências nos formatos PNG, JPG, WEBP, MP4 ou TXT.",
     );
   }
+  if (attachments.length) {
+    return apiError(
+      422,
+      "Envie as evidências como arquivos depois de criar a ocorrência.",
+    );
+  }
 
   let catalogItemId: string | undefined;
   let otherError: string | undefined;
